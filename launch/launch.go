@@ -1,8 +1,10 @@
-package launch
+package main
 
 import (
 	"os/exec"
 	"log"
+	"fmt"
+	"os"
 )
 
 
@@ -13,13 +15,22 @@ func parseArgs() {
 }
 
 func getNodeList() {
-	nodeListCmd = "sh rocks_list_random_hosts.sh"
-	cmd := exec.command(nodeListCmd)
+	fmt.Println(os.Getenv("PATH"))
+	nodeListCmd := "/test.sh"
+	cmd := exec.Command(nodeListCmd)
 
-	output, err := cmd.Run().Output()
+	err := cmd.Run()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	result, err := cmd.Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(result)
+	//return result
 }
 
 
@@ -40,7 +51,7 @@ func initNameserver() {
 
 
 func main () {
-	nodeList := getNodeList()
-	fmt.Println(nodeList)
+	getNodeList()
+	//fmt.Println(nodeList)
 
 }
