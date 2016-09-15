@@ -1,14 +1,16 @@
-package node
+package main
 
 
 import (
 	"fmt"
 	"net/http"
+	"net"
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"encoding/json"
 	"log"
 	"strings"
+	"os"
 )
 
 
@@ -18,25 +20,35 @@ type Node struct {
 	NameServer string
 }
 
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
 
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
+}
 func getKey(r *http.Request) string {
 	vars := mux.Vars(r)
 	return vars["key"]
 }
 
 
-func NodeHttpHandler() {
+func (n *Node) NodeHttpHandler() {
 	r := mux.NewRouter()
-
-	node_state := new(Node)
-	node_state.storage = make(map[string]string)
-
-	r.HandleFunc("/{key}", node_state.getHandler).Methods("GET")
-	r.HandleFunc("/{key}", node_state.putHandler).Methods("PUT")
+	r.HandleFunc("/{key}", n.getHandler).Methods("GET")
+	r.HandleFunc("/{key}", n.putHandler).Methods("PUT")
 
 	fmt.Println("Server listening...")
 
-	http.ListenAndServe(":8080", r)
+	http.ListenAndServe(n.Ip, r)
 }
 
 
@@ -73,4 +85,22 @@ func (n *Node) PutIp() {
 	} else {
 		resp.Body.Close()
 	}
+}
+
+
+func main() {
+	hostName, _ := os.Hostname()
+	hostName = strings.Split(hostName, ".")[0]
+	fmt.Println("Started node on " + hostName)
+
+	args := os.Args[1:]
+	nameServer := strings.Join(args, "")
+
+	node := new(Node)
+	node.storage = make(map[string]string)
+	node.Ip = hostName
+	node.NameServer = "http://" + nameServer + ":8080"
+
+	node.PutIp()
+	node.NodeHttpHandler()
 }
