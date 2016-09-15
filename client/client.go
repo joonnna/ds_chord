@@ -1,4 +1,4 @@
-package client
+package main
 
 import (
 	"fmt"
@@ -42,7 +42,7 @@ func (c *Client) GetNodeList()  {
 	}
 }
 
-func (c *Client) GetValue(ip string, key string) {
+func (c *Client) GetValue(ip string, key string) string {
 	req, err := http.NewRequest("GET", ip+"/"+ key, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -54,22 +54,22 @@ func (c *Client) GetValue(ip string, key string) {
 		log.Fatal(err)
 	} else {
 		body,_ := ioutil.ReadAll(resp.Body)
-		fmt.Println(string(body))
-
+		//fmt.Println(string(body))
 		resp.Body.Close()
+		return string(body)
 	}
 }
 
 
 func (c *Client) PutValue(ip string, key string, value string) {
-	
+
 	req, err := http.NewRequest("PUT", ip+"/"+ key, strings.NewReader(value))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Println("sending put request..")
-	
+
 	client := &http.Client{}
 
 	resp, err := client.Do(req)
@@ -78,6 +78,22 @@ func (c *Client) PutValue(ip string, key string, value string) {
 	} else {
 		resp.Body.Close()
 	}
-
-
 }
+
+func main() {
+
+	args := os.Args[1:]
+	nameServer := strings.Join(args, "")
+
+	c := new(Client)
+	c.NameServer = naemServer
+	c.NodeIps = make(map[string]string)
+
+	c.GetNodeList()
+	key, value := GenKeyValue()
+	fmt.Println("PUT key/val: " + key + "/" + value + "to node : " + c.nodeIps[0])
+	c.PutValue(c.nodeIps[0], key, value)
+	getVal := c.GetValue(c.nodeIps[0], key)
+	fmt.Println("GETVAL : " + getVal)
+}
+

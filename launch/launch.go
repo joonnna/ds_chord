@@ -11,13 +11,6 @@ import (
 	//"time"
 )
 
-
-
-func parseArgs() {
-
-
-}
-
 func getNodeList(numHosts int) []string {
 	scriptName := "./rocks_list_random_hosts.sh"
 	cmd := exec.Command("sh", scriptName, strconv.Itoa(numHosts))
@@ -28,7 +21,7 @@ func getNodeList(numHosts int) []string {
 	}
 
 	nodeList := strings.Split(string(result), " ")
-
+	fmt.Println(nodeList)
 
 	return nodeList[:numHosts]
 }
@@ -40,23 +33,6 @@ func sshToNode(ip string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func initClient() {
-
-
-}
-
-func initNode(ip string) {
-
-}
-
-
-func initNameServer() {
-//	sshToNode(nodeName)
-
-//	nameserver.HttpServer(ip)
-//	fmt.Println("yoyoyo")
 }
 
 func launch(nodeName string, path string, nameServer string) {
@@ -77,11 +53,13 @@ func launch(nodeName string, path string, nameServer string) {
 func main () {
 	numHosts := 3
 	nodeList := getNodeList(numHosts)
+
 	fmt.Println("yoyoyooy : ")
 	fmt.Println(nodeList)
+
 	nameServerPath := "./go/src/github.com/joonnna/ds_chord/nameserver/nameserver.go"
 	nodePath := "./go/src/github.com/joonnna/ds_chord/node/node.go"
-//	clientPath := "./go/src/github.com/joonnna/ds_chord/client/client.go"
+	clientPath := "./go/src/github.com/joonnna/ds_chord/client/client.go"
 
 	nameServerIp := nodeList[0]
 	launch(nameServerIp, nameServerPath, "")
@@ -89,6 +67,8 @@ func main () {
 		if idx != 0 {
 			fmt.Println(ip)
 			launch(ip, nodePath, nameServerIp)
+		} else if idx == 2 {
+			launch(ip, clientPath, nameServerIp)
 		}
 	}
 }
