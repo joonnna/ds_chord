@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/rpc"
 	"net"
 	"github.com/gorilla/mux"
 	"io/ioutil"
@@ -20,21 +21,6 @@ type Node struct {
 	NameServer string
 }
 
-func GetLocalIP() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return ""
-	}
-
-	for _, address := range addrs {
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
-			}
-		}
-	}
-	return ""
-}
 func getKey(r *http.Request) string {
 	vars := mux.Vars(r)
 	return vars["key"]
@@ -87,6 +73,11 @@ func (n *Node) PutIp() {
 	}
 }
 
+func (n *Node) InitRpc() {
+	server := rpc.NewServer()
+
+	server.RegisterName("NodeComm", server)
+}
 
 func main() {
 	hostName, _ := os.Hostname()
@@ -96,11 +87,12 @@ func main() {
 	args := os.Args[1:]
 	nameServer := strings.Join(args, "")
 
-	node := new(Node)
-	node.storage = make(map[string]string)
-	node.Ip = hostName
-	node.NameServer = "http://" + nameServer + ":8080"
+	n := new(Node)
+	n.storage = make(map[string]string)
+	n.Ip = hostName
+	n.NameServer = "http://" + nameServer + ":8080"
 
-	node.PutIp()
-	node.NodeHttpHandler()
+	n.InitRpc()
+	n.PutIp()
+	n.NodeHttpHandler()
 }
