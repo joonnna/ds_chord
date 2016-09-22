@@ -1,5 +1,5 @@
 package shared
 
-type Comm interface {
+type RPC interface {
 	FindSuccessor(id int, test *string)
 }

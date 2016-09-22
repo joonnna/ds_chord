@@ -12,6 +12,7 @@ import (
 	"strings"
 	"os"
 	"github.com/joonnna/ds_chord/nodeRpc"
+	"github.com/joonnna/ds_chord/node_communication"
 )
 
 
@@ -19,6 +20,7 @@ type Node struct {
 	storage map[string]string
 	Ip string
 	NameServer string
+	Test *shared.Comm
 }
 
 func getKey(r *http.Request) string {
@@ -73,6 +75,31 @@ func (n *Node) PutIp() {
 	}
 }
 
+func (n *Node) GetNodeList() []string  {
+	fmt.Println("sending GET request..")
+	var nodeIps []string
+
+	r, err := http.Get(n.NameServer)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	body, _ := ioutil.ReadAll(r.Body)
+
+	err = json.Unmarshal(body, &nodeIps)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return nodeIps
+}
+
+func (n *Node) FindSuccessor(id int, test *string) error {
+	fmt.Println("FindSuccessor on id " + string(id) + "on node " +  n.Ip)
+
+	return nil
+}
+
+
 
 func main() {
 	hostName, _ := os.Hostname()
@@ -82,12 +109,26 @@ func main() {
 	args := os.Args[1:]
 	nameServer := strings.Join(args, "")
 
+	var str string
 	n := new(Node)
 	n.storage = make(map[string]string)
 	n.Ip = hostName
 	n.NameServer = "http://" + nameServer + ":8080"
 
-	InitRpc(n.Ip)
+	nodeRpc.InitRpcServer(n.Ip)
 	n.PutIp()
+
+	list := n.GetNodeList()
+	fmt.Println(list)
+
+	client := nodeRpc.DialNeighbour(list[0])
+	n.Test = &shared.Comm{Client: client}
+
+	err := n.Test.FindSuccessor(3, &str)
+	fmt.Println(err)
+
 	n.NodeHttpHandler()
+
+
+
 }

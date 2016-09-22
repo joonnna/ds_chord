@@ -1,12 +1,13 @@
 package nodeRpc
 
 import(
+	"fmt"
 	"log"
 	"net"
 	"net/rpc"
 )
 
-func InitRpc(ip string) {
+func InitRpcServer(ip string) {
 	server := rpc.NewServer()
 
 	server.RegisterName("Node", server)
@@ -16,9 +17,17 @@ func InitRpc(ip string) {
 		log.Fatal(err)
 	}
 
-	fmt.Println("yoyo")
+	fmt.Println("Initing RPC on node : " + ip)
 
 	go server.Accept(l)
 }
 
+func DialNeighbour(ip string) *rpc.Client {
+	connection, err := net.Dial("tcp", ip)
+	if err != nil {
+		return nil
+	}
+
+	return rpc.NewClient(connection)
+}
 

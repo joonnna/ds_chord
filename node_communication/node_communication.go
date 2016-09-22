@@ -1,18 +1,19 @@
-package main
+package shared
 
-import (
-	"shared"
+import(
+	"fmt"
+	"net/rpc"
 )
 
 type Comm struct {
-	client *rpc.Client
+	Client *rpc.Client
 }
 
 
 func (c *Comm) FindSuccessor(id int, test *string) error {
 	fmt.Println("yoyoyoyo")
 
-	c.client.Call("Node.FinndSuccessor", id)
+	c.Client.Call("Node.FindSuccessor", id, test)
 
 	return nil
 }
