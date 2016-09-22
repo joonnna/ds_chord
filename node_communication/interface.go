@@ -1,5 +1,5 @@
 package shared
 
 type RPC interface {
-	FindSuccessor(id int, test *string)
+	FindSuccessor(id int, test *int) error
 }

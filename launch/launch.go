@@ -50,20 +50,21 @@ func launch(nodeName string, path string, nameServer string) {
 
 
 func main () {
-	numHosts := 1
+	numHosts := 3
 	nodeList := getNodeList(numHosts)
 
 	fmt.Println(nodeList)
 
-	//nameServerPath := "./go/src/github.com/joonnna/ds_chord/nameserver/nameserver.go"
+	nameServerPath := "./go/src/github.com/joonnna/ds_chord/nameserver/nameserver.go"
 	nodePath := "./go/src/github.com/joonnna/ds_chord/node/node.go"
 	//clientPath := "./go/src/github.com/joonnna/ds_chord/client/client.go"
 
 	nameServerIp := nodeList[0]
-	//launch(nameServerIp, nameServerPath, "")
+	launch(nameServerIp, nameServerPath, "")
 	time.Sleep(10)
+
 	for idx, ip := range nodeList {
-		if idx == 0 {
+		if idx != 0 {
 			launch(ip, nodePath, nameServerIp)
 		}
 //		if idx == 2{
