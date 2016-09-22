@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 	"strconv"
-	//"time"
+	"time"
 )
 
 func getNodeList(numHosts int) []string {
@@ -21,7 +21,6 @@ func getNodeList(numHosts int) []string {
 	}
 
 	nodeList := strings.Split(string(result), " ")
-	fmt.Println(nodeList)
 
 	return nodeList[:numHosts]
 }
@@ -51,24 +50,25 @@ func launch(nodeName string, path string, nameServer string) {
 
 
 func main () {
-	numHosts := 3
+	numHosts := 1
 	nodeList := getNodeList(numHosts)
 
-	fmt.Println("yoyoyooy : ")
 	fmt.Println(nodeList)
 
-	nameServerPath := "./go/src/github.com/joonnna/ds_chord/nameserver/nameserver.go"
+	//nameServerPath := "./go/src/github.com/joonnna/ds_chord/nameserver/nameserver.go"
 	nodePath := "./go/src/github.com/joonnna/ds_chord/node/node.go"
-	clientPath := "./go/src/github.com/joonnna/ds_chord/client/client.go"
+	//clientPath := "./go/src/github.com/joonnna/ds_chord/client/client.go"
 
 	nameServerIp := nodeList[0]
-	launch(nameServerIp, nameServerPath, "")
+	//launch(nameServerIp, nameServerPath, "")
+	time.Sleep(10)
 	for idx, ip := range nodeList {
-		if idx != 0 {
-			fmt.Println(ip)
+		if idx == 0 {
 			launch(ip, nodePath, nameServerIp)
-		} else if idx == 2 {
-			launch(ip, clientPath, nameServerIp)
 		}
+//		if idx == 2{
+//			launch(ip, clientPath, nameServerIp)
+//		}
+		time.Sleep(1)
 	}
 }

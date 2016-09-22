@@ -4,14 +4,14 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"net/rpc"
-	"net"
+//	"net"
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"encoding/json"
 	"log"
 	"strings"
 	"os"
+	"github.com/joonnna/ds_chord/nodeRpc"
 )
 
 
@@ -73,11 +73,6 @@ func (n *Node) PutIp() {
 	}
 }
 
-func (n *Node) InitRpc() {
-	server := rpc.NewServer()
-
-	server.RegisterName("NodeComm", server)
-}
 
 func main() {
 	hostName, _ := os.Hostname()
@@ -92,7 +87,7 @@ func main() {
 	n.Ip = hostName
 	n.NameServer = "http://" + nameServer + ":8080"
 
-	n.InitRpc()
+	InitRpc(n.Ip)
 	n.PutIp()
 	n.NodeHttpHandler()
 }
