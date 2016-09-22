@@ -5,12 +5,13 @@ import(
 	"log"
 	"net"
 	"net/rpc"
+	"github.com/joonnna/ds_chord/node_communication"
 )
 
 func InitRpcServer(ip string) {
 	server := rpc.NewServer()
 
-	server.RegisterName("Node", server)
+	server.RegisterName("Node", shared.RPC)
 
 	l, err := net.Listen("tcp", ip + ":8005")
 	if err != nil {
@@ -23,7 +24,7 @@ func InitRpcServer(ip string) {
 }
 
 func DialNeighbour(ip string) *rpc.Client {
-	connection, err := net.Dial("tcp", ip)
+	connection, err := net.Dial("tcp", ip + ":8005")
 	if err != nil {
 		return nil
 	}
