@@ -5,6 +5,7 @@ import(
 	"net/rpc"
 	"net"
 	"log"
+	//"time"
 )
 
 type Comm struct {
@@ -12,12 +13,14 @@ type Comm struct {
 }
 
 
-func (c *Comm) FindSuccessor(id int, test *int) error {
-	fmt.Println("yoyoyoyo")
-	var smeg int
-	c.Client.Call("Node.FindSuccessor", id, &smeg)
-
-	return nil
+func (c *Comm) FindSuccessor(id int, reply int) string {
+	r := new(ReplyType)
+	err := c.Client.Call("Node.FindSuccessor", id, r)
+	if err != nil {
+		fmt.Println("Javell ja...")
+	}
+	fmt.Println(r.Ip)
+	return r.Ip
 }
 
 func InitRpcServer(ip string, api RPC) {
@@ -25,7 +28,7 @@ func InitRpcServer(ip string, api RPC) {
 
 	server.RegisterName("Node", api)
 
-	l, err := net.Listen("tcp", ip + ":8005")
+	l, err := net.Listen("tcp", ":8245")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,11 +39,11 @@ func InitRpcServer(ip string, api RPC) {
 }
 
 func DialNeighbour(ip string) *rpc.Client {
-	connection, err := net.Dial("tcp", ip + ":8005")
+	//timeout := time.Duration(5 *time.Second)
+	connection, err := net.Dial("tcp", ip + ":8245")
 	if err != nil {
-		return nil
+		log.Fatal(err)
 	}
-
 	return rpc.NewClient(connection)
 }
 

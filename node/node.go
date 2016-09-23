@@ -1,133 +1,84 @@
-package main
-
+package node
 
 import (
 	"fmt"
-	"net/http"
-//	"net"
-	"github.com/gorilla/mux"
-	"io/ioutil"
-	"encoding/json"
 	"log"
 	"strings"
 	"os"
-	//"github.com/joonnna/ds_chord/nodeRpc"
+	"strconv"
 	"github.com/joonnna/ds_chord/node_communication"
+	"github.com/joonnna/ds_chord/util"
 )
-
 
 type Node struct {
 	storage map[string]string
-	Ip string
-	NameServer string
-	Test *shared.Comm
+	ip string
+	id int
+	nameServer string
+	next *shared.Comm
+	prev *shared.Comm
 }
 
-func getKey(r *http.Request) string {
-	vars := mux.Vars(r)
-	return vars["key"]
-}
-
-
-func (n *Node) nodeHttpHandler() {
-	r := mux.NewRouter()
-	r.HandleFunc("/{key}", n.getHandler).Methods("GET")
-	r.HandleFunc("/{key}", n.putHandler).Methods("PUT")
-
-	fmt.Println("Server listening...")
-
-	http.ListenAndServe(n.Ip, r)
-}
-
-
-func (n *Node) getHandler(w http.ResponseWriter, r *http.Request) {
-	key := getKey(r)
-
-	err := json.NewEncoder(w).Encode(key)
-	if err != nil {
-		log.Fatal(err)
+func getNode(list []string, curNode string) string {
+	for _, ip := range list {
+		if ip != curNode {
+			return ip
+		}
 	}
+	return ""
 }
 
-func (n *Node) putHandler(w http.ResponseWriter, r *http.Request) {
-	key := getKey(r)
+func(n *Node) initNode(ip string, nameServer string, id int) {
+	n.storage = make(map[string]string)
+	n.ip = ip
+	n.nameServer = "http://" + nameServer + ":7551"
+	n.id = id
 
-	body, _ := ioutil.ReadAll(r.Body)
-	value := string(body)
+	shared.InitRpcServer(n.ip, n)
+	n.putIp()
 
-	n.storage[key] = value
-}
-
-func (n *Node) putIp() {
-	req, err := http.NewRequest("PUT", n.NameServer+"/", strings.NewReader(n.Ip))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("sending put request..")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
+	list := n.getNodeList()
+	if len(list) == 1 && list[0] == n.ip {
+		fmt.Println("IM ALONE BITCHES")
 	} else {
-		resp.Body.Close()
+		randomNode := getNode(list, n.ip)
+		fmt.Printf("CONNECTING TO %s\n", randomNode)
+		client := shared.DialNeighbour(randomNode)
+		temp := &shared.Comm{Client: client}
+
+		r := temp.FindSuccessor(n.id, 10)
+		fmt.Println("MY SUCCESSOR IS : " + r)
 	}
 }
 
-func (n *Node) getNodeList() []string  {
-	fmt.Println("sending GET request..")
-	var nodeIps []string
 
-	r, err := http.Get(n.NameServer)
-	if err != nil {
-		log.Fatal(err)
+func (n *Node) FindSuccessor(id int, reply *shared.ReplyType) error {
+	fmt.Println("FindSuccessor on id " + strconv.Itoa(id) + " on node " +  n.ip)
+	if id < n.id {
+		temp := *reply
+		temp.Ip = n.ip
+	} else {
+		fmt.Println("NOT SUCCESSOR")
 	}
-
-	body, _ := ioutil.ReadAll(r.Body)
-
-	err = json.Unmarshal(body, &nodeIps)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return nodeIps
-}
-
-func (n *Node) FindSuccessor(id int, test *int) error {
-	fmt.Println("FindSuccessor on id " + string(id) + "on node " +  n.Ip)
-
 	return nil
 }
 
 
+func Run(nameServer string, id string) {
+	go util.CheckInterrupt()
 
-func main() {
 	hostName, _ := os.Hostname()
 	hostName = strings.Split(hostName, ".")[0]
 	fmt.Println("Started node on " + hostName)
 
-	args := os.Args[1:]
-	nameServer := strings.Join(args, "")
-
-	var str int
 	n := new(Node)
-	n.storage = make(map[string]string)
-	n.Ip = hostName
-	n.NameServer = "http://" + nameServer + ":8080"
-	shared.InitRpcServer(n.Ip, n)
-	n.putIp()
-
-	list := n.getNodeList()
-	fmt.Println(list)
-
-	client := shared.DialNeighbour(list[0])
-	n.Test = &shared.Comm{Client: client}
-
-	err := n.Test.FindSuccessor(3, &str)
-	fmt.Println(err)
+	nodeId, err := strconv.Atoi(id)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(id)
+	n.initNode(hostName, nameServer, nodeId)
 
 	n.nodeHttpHandler()
-
-
 
 }

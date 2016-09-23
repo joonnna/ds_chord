@@ -1,5 +1,9 @@
 package shared
 
+type ReplyType struct {
+	Ip string
+}
+
 type RPC interface {
-	FindSuccessor(id int, test *int) error
+	FindSuccessor(id int, reply *ReplyType) error
 }

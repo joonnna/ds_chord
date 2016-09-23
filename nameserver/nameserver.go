@@ -1,11 +1,11 @@
-package main
+package nameserver
 
 import (
+	"github.com/joonnna/ds_chord/util"
 	"strings"
 	"os"
 	"log"
 	"fmt"
-//	"net"
 	"net/http"
 	"github.com/gorilla/mux"
 	"sync"
@@ -27,7 +27,7 @@ func HttpServer(ip string) {
 
 	fmt.Printf("Server listening on %s...\n", ip)
 
-	http.ListenAndServe(":8080", r)
+	http.ListenAndServe(":7551", r)
 }
 
 
@@ -39,31 +39,34 @@ func (s *State) getHandler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewEncoder(w).Encode(s.nodeIps)
 
 	if err != nil {
-		log.Fatal(err)
 		s.mutex.RUnlock()
+		log.Fatal(err)
 	}
 
 	s.mutex.RUnlock()
 }
 
 func (s *State) putHandler(w http.ResponseWriter, r *http.Request) {
-
 	fmt.Println("Received put in nameserver")
 	s.mutex.Lock()
 
 	newIp, err:= ioutil.ReadAll(r.Body)
 	if err != nil {
+		fmt.Println("Nameserver panic")
+		s.mutex.Unlock()
 		log.Fatal(err)
 	}
-
 	s.nodeIps = append(s.nodeIps, string(newIp))
-	fmt.Println(s.nodeIps)
+
 	s.mutex.Unlock()
 }
 
-func main() {
+func Run() {
+	go util.CheckInterrupt()
+
 	hostName, _ := os.Hostname()
 	hostName = strings.Split(hostName, ".")[0]
 	fmt.Println("Started nameserver on " + hostName)
+
 	HttpServer(hostName)
 }
