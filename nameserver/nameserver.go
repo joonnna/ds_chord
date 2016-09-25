@@ -2,63 +2,78 @@ package nameserver
 
 import (
 	"github.com/joonnna/ds_chord/util"
+	"github.com/joonnna/ds_chord/logger"
 	"strings"
 	"os"
-	"log"
-	"fmt"
 	"net/http"
 	"github.com/gorilla/mux"
 	"sync"
 	"encoding/json"
 	"io/ioutil"
+	"errors"
 )
 
-type State struct {
+type nameServer struct {
 	nodeIps []string
 	mutex sync.RWMutex
+	logger *logger.Logger
 }
 
-func HttpServer(ip string) {
+var (
+	ErrEncode = errors.New("Unable to encode body")
+	ErrRead = errors.New("Unable to read body")
+)
+
+
+func (n *nameServer) Init(ip string) {
+	l := new(logger.Logger)
+	l.Init((os.Stdout), "Nameserver", 0)
+
+	n.logger = l
+}
+
+
+func (n *nameServer) httpServer() {
 	r := mux.NewRouter()
-	current_state := new(State)
 
-	r.Methods("GET").Path("/").HandlerFunc(current_state.getHandler)
-	r.Methods("PUT").Path("/").HandlerFunc(current_state.putHandler)
+	r.Methods("GET").Path("/").HandlerFunc(n.getHandler)
+	r.Methods("PUT").Path("/").HandlerFunc(n.putHandler)
 
-	fmt.Printf("Server listening on %s...\n", ip)
+	port := ":7551"
 
-	http.ListenAndServe(":7551", r)
+	n.logger.Info("Listening on " + port)
+
+	http.ListenAndServe(port, r)
 }
 
 
 
-func (s *State) getHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Received get in nameserver")
-	s.mutex.RLock()
+func (n *nameServer) getHandler(w http.ResponseWriter, r *http.Request) {
+	n.logger.Info("Received get in nameserver")
+	n.mutex.RLock()
 
-	err := json.NewEncoder(w).Encode(s.nodeIps)
+	err := json.NewEncoder(w).Encode(n.nodeIps)
 
 	if err != nil {
-		s.mutex.RUnlock()
-		log.Fatal(err)
+		n.logger.Error(ErrEncode.Error())
 	}
 
-	s.mutex.RUnlock()
+	n.mutex.RUnlock()
 }
 
-func (s *State) putHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Received put in nameserver")
-	s.mutex.Lock()
+func (n *nameServer) putHandler(w http.ResponseWriter, r *http.Request) {
+	n.logger.Info("Received get in nameserver")
+	n.mutex.Lock()
 
 	newIp, err:= ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println("Nameserver panic")
-		s.mutex.Unlock()
-		log.Fatal(err)
+		n.mutex.Unlock()
+		n.logger.Error(ErrRead.Error())
+		return
 	}
-	s.nodeIps = append(s.nodeIps, string(newIp))
+	n.nodeIps = append(n.nodeIps, string(newIp))
 
-	s.mutex.Unlock()
+	n.mutex.Unlock()
 }
 
 func Run() {
@@ -66,7 +81,10 @@ func Run() {
 
 	hostName, _ := os.Hostname()
 	hostName = strings.Split(hostName, ".")[0]
-	fmt.Println("Started nameserver on " + hostName)
 
-	HttpServer(hostName)
+	n := new(nameServer)
+
+	n.Init(hostName)
+
+	n.httpServer()
 }

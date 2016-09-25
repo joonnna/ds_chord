@@ -45,8 +45,6 @@ func (n *Node) putIp() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Sending ip to nameserver...")
-
 	timeout := time.Duration(5 * time.Second)
 	client := &http.Client{Timeout : timeout}
 	resp, err := client.Do(req)
@@ -59,7 +57,6 @@ func (n *Node) putIp() {
 }
 
 func (n *Node) getNodeList() []string  {
-	fmt.Println("Getting node list...")
 	var nodeIps []string
 
 	timeout := time.Duration(5 * time.Second)
