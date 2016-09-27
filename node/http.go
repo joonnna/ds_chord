@@ -7,10 +7,21 @@ import (
 	"fmt"
 	"encoding/json"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 	"github.com/joonnna/ds_chord/util"
+	"github.com/joonnna/ds_chord/node_communication"
 )
+
+func rpcArgs(ip string, key int, value string) shared.Args {
+	args := shared.Args {
+		Key: key,
+		Value: value,
+		Address: ip }
+
+	return args
+}
 
 func (n *Node) nodeHttpHandler() {
 	r := mux.NewRouter()
@@ -22,21 +33,81 @@ func (n *Node) nodeHttpHandler() {
 
 
 func (n *Node) getHandler(w http.ResponseWriter, r *http.Request) {
-	key := util.GetKey(r)
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
 
-	err := json.NewEncoder(w).Encode(key)
+	key, err := strconv.Atoi(util.GetKey(r))
 	if err != nil {
-		log.Fatal(err)
+		n.logger.Error(err.Error())
+		return
 	}
+
+	n.logger.Info("GET key " + strconv.Itoa(key) + " on nodeid " + strconv.Itoa(n.id))
+
+	var value string
+
+	if util.InKeySpace(key, n.id, n.prev.Id) {
+		value = n.storage[key]
+	} else {
+		args := createArgs(n.next.Ip, n.ip, key)
+		reply, err := shared.SingleCall("Node.Findsuccessor", args)
+		if err != nil {
+			n.logger.Error(err.Error())
+			return
+		}
+
+		args = rpcArgs(reply.Next.Ip, key, value)
+		reply, err = shared.SingleCall("Node.GetKey", args)
+		if err != nil {
+			n.logger.Error(err.Error())
+			return
+		}
+		value = reply.Value
+	}
+
+	err = json.NewEncoder(w).Encode(value)
+	if err != nil {
+		n.logger.Error(err.Error())
+	}
+
 }
 
 func (n *Node) putHandler(w http.ResponseWriter, r *http.Request) {
-	key := util.GetKey(r)
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
 
-	body, _ := ioutil.ReadAll(r.Body)
+	key, err := strconv.Atoi(util.GetKey(r))
+	if err != nil {
+		n.logger.Error(err.Error())
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		n.logger.Error(err.Error())
+		return
+	}
 	value := string(body)
+	n.logger.Info("PUT key/value " + strconv.Itoa(key) + "/" + value + " on nodeid " + strconv.Itoa(n.id))
 
-	n.storage[key] = value
+	if util.InKeySpace(key, n.id, n.prev.Id) {
+		n.storage[key] = value
+		return
+	}
+
+	args := createArgs(n.next.Ip, n.ip, key)
+	reply, err := shared.SingleCall("Node.Findsuccessor", args)
+	if err != nil {
+		n.logger.Error(err.Error())
+		return
+	}
+
+	args = rpcArgs(reply.Next.Ip, key, value)
+	_, err = shared.SingleCall("Node.PutKey", args)
+	if err != nil {
+		n.logger.Error(err.Error())
+		return
+	}
 }
 
 func (n *Node) putIp() {

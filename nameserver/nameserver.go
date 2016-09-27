@@ -17,6 +17,7 @@ type nameServer struct {
 	nodeIps []string
 	mutex sync.RWMutex
 	logger *logger.Logger
+	ip string
 }
 
 var (
@@ -29,6 +30,7 @@ func (n *nameServer) Init(ip string) {
 	l := new(logger.Logger)
 	l.Init((os.Stdout), "Nameserver", 0)
 
+	n.ip = ip
 	n.logger = l
 }
 
@@ -43,7 +45,7 @@ func (n *nameServer) httpServer() {
 
 	n.logger.Info("Listening on " + port)
 
-	http.ListenAndServe(port, r)
+	http.ListenAndServe(n.ip + port, r)
 }
 
 

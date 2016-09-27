@@ -9,6 +9,31 @@ import (
 	"net/http"
 )
 
+func InKeySpace(id int, nodeId int, prevId int) bool {
+	if nodeId < prevId {
+		if (id > nodeId && id > prevId) || (id < nodeId && id < prevId){
+			return true
+		} else {
+			return false
+		}
+	} else {
+		if id < nodeId && id > prevId {
+			return true
+		} else {
+			return false
+		}
+	}
+}
+
+func GetNode(list []string, curNode string) string {
+	for _, ip := range list {
+		if ip != curNode {
+			return ip
+		}
+	}
+	return ""
+}
+
 
 func GetKey(r *http.Request) string {
 	vars := mux.Vars(r)

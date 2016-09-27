@@ -70,7 +70,7 @@ func launch(nodeName string, path string, nameServer string, id int) io.WriteClo
 
 
 func main () {
-	numHosts := 3
+	numHosts := 4
 	nodeList := getNodeList(numHosts)
 
 	//nameServerPath := "./go/src/github.com/joonnna/ds_chord/nameserver/nameserver.go"
@@ -91,7 +91,11 @@ func main () {
 
 	for idx, ip := range nodeList {
 		if idx != 0 {
-			pipe = launch(ip, path, nameServerIp, idx)
+			if idx == 3 {
+				pipe = launch(ip, path, nameServerIp, 1)
+			} else {
+				pipe = launch(ip, path, nameServerIp, idx+2)
+			}
 			pipeSlice = append(pipeSlice, pipe)
 		}
 		time.Sleep((3 * time.Second))
