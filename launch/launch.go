@@ -2,10 +2,10 @@ package main
 
 import (
 //	"github.com/joonnna/ds_chord/nameserver"
+	"io"
 	"os/exec"
 	"log"
 	"fmt"
-	"io"
 	"os"
 	"syscall"
 	"os/signal"
@@ -14,14 +14,13 @@ import (
 	"time"
 )
 
-func killShit(pipes []io.WriteCloser) {
+func cleanUp(pipeSlice []io.WriteCloser) {
 	fmt.Println("CLEANUP")
-	for _, pipe := range pipes {
+	for _, pipe := range pipeSlice {
 		pipe.Write([]byte("kill"))
 		pipe.Close()
 	}
 }
-
 
 func getNodeList(numHosts int) []string {
 	scriptName := "./rocks_list_random_hosts.sh"
@@ -47,12 +46,16 @@ func sshToNode(ip string) {
 }
 
 func launch(nodeName string, path string, nameServer string, id int) io.WriteCloser {
-
 	var command string
-	if nameServer != "" {
-		command = "go run " + path + " " + nameServer + "," + strconv.Itoa(id) + ",node"
+	httpPort := ":7300"
+	rpcPort := ":3300"
+
+	if id == -1 {
+		command = "go run " + path + " " + nameServer + "," + httpPort + ",client"
+	} else if nameServer != "" {
+		command = "go run " + path + " " + nameServer + "," + httpPort + "," + rpcPort + ",node"
 	} else {
-		command = "go run " + path + " ,nameserver"
+		command = "go run " + path + " " + httpPort + " ,nameserver"
 	}
 	cmd := exec.Command("ssh", "-T", nodeName, command)
 	cmd.Stdout = os.Stdout
@@ -70,12 +73,9 @@ func launch(nodeName string, path string, nameServer string, id int) io.WriteClo
 
 
 func main () {
-	numHosts := 4
+	numHosts := 40
 	nodeList := getNodeList(numHosts)
 
-	//nameServerPath := "./go/src/github.com/joonnna/ds_chord/nameserver/nameserver.go"
-	//nodePath := "./go/src/github.com/joonnna/ds_chord/node/node.go"
-	//clientPath := "./go/src/github.com/joonnna/ds_chord/client/client.go"
 	path := "./go/src/github.com/joonnna/ds_chord/main.go"
 
 	var pipeSlice []io.WriteCloser
@@ -93,17 +93,19 @@ func main () {
 		if idx != 0 {
 			if idx == 3 {
 				pipe = launch(ip, path, nameServerIp, 1)
+			} else if idx == len(nodeList) - 1 {
+				time.Sleep((8 * time.Second))
+				pipe = launch(ip, path, nameServerIp, -1)
 			} else {
 				pipe = launch(ip, path, nameServerIp, idx+2)
 			}
-			pipeSlice = append(pipeSlice, pipe)
 		}
-		time.Sleep((3 * time.Second))
+		pipeSlice = append(pipeSlice, pipe)
 
 	}
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
-	killShit(pipeSlice)
+	cleanUp(pipeSlice)
 }

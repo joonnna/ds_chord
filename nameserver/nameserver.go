@@ -1,8 +1,8 @@
 package nameserver
 
 import (
-	"github.com/joonnna/ds_chord/util"
 	"github.com/joonnna/ds_chord/logger"
+	"github.com/joonnna/ds_chord/util"
 	"strings"
 	"os"
 	"net/http"
@@ -18,6 +18,7 @@ type nameServer struct {
 	mutex sync.RWMutex
 	logger *logger.Logger
 	ip string
+	port string
 }
 
 var (
@@ -26,12 +27,13 @@ var (
 )
 
 
-func (n *nameServer) Init(ip string) {
+func (n *nameServer) Init(ip string, port string) {
 	l := new(logger.Logger)
 	l.Init((os.Stdout), "Nameserver", 0)
 
 	n.ip = ip
 	n.logger = l
+	n.port = port
 }
 
 
@@ -41,11 +43,9 @@ func (n *nameServer) httpServer() {
 	r.Methods("GET").Path("/").HandlerFunc(n.getHandler)
 	r.Methods("PUT").Path("/").HandlerFunc(n.putHandler)
 
-	port := ":7551"
+	n.logger.Info("Listening on " + n.port)
 
-	n.logger.Info("Listening on " + port)
-
-	http.ListenAndServe(n.ip + port, r)
+	http.ListenAndServe(n.port, r)
 }
 
 
@@ -55,7 +55,6 @@ func (n *nameServer) getHandler(w http.ResponseWriter, r *http.Request) {
 	n.mutex.RLock()
 
 	err := json.NewEncoder(w).Encode(n.nodeIps)
-
 	if err != nil {
 		n.logger.Error(ErrEncode.Error())
 	}
@@ -64,7 +63,7 @@ func (n *nameServer) getHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (n *nameServer) putHandler(w http.ResponseWriter, r *http.Request) {
-	n.logger.Info("Received get in nameserver")
+	n.logger.Info("Received put in nameserver")
 	n.mutex.Lock()
 
 	newIp, err:= ioutil.ReadAll(r.Body)
@@ -78,7 +77,7 @@ func (n *nameServer) putHandler(w http.ResponseWriter, r *http.Request) {
 	n.mutex.Unlock()
 }
 
-func Run() {
+func Run(port string) {
 	go util.CheckInterrupt()
 
 	hostName, _ := os.Hostname()
@@ -86,7 +85,7 @@ func Run() {
 
 	n := new(nameServer)
 
-	n.Init(hostName)
+	n.Init(hostName, port)
 
 	n.httpServer()
 }

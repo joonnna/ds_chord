@@ -1,41 +1,41 @@
 package node
 
 import (
-//	"fmt"
+	//"fmt"
 	"net"
-	"log"
 	"strings"
 	"os"
-	"strconv"
 	"github.com/joonnna/ds_chord/node_communication"
 	"github.com/joonnna/ds_chord/util"
 	"github.com/joonnna/ds_chord/logger"
+	"github.com/joonnna/ds_chord/storage"
 	"sync"
 	"errors"
 )
 
 type Node struct {
-	storage map[int]string
+	storage map[string]string
 	ip string
-	id int
+	id string
 	nameServer string
+	rpcPort string
 	logger *logger.Logger
+
 	next shared.NodeInfo
 	prev shared.NodeInfo
+
 	mutex sync.RWMutex
+	update sync.Mutex
 }
+
 var (
 	ErrGet = errors.New("Unable to get key")
-	ErrPut = errors.New("Unalbe to put key")
+	ErrPut = errors.New("Unable to put key")
 )
 
-func (n *Node) initNode(ip string, nameServer string, id int) net.Listener {
-	n.storage = make(map[int]string)
-	n.ip = ip
-	n.nameServer = "http://" + nameServer + ":7551"
-	n.id = id
-	n.next.Id = -1
-	n.prev.Id = -1
+func (n *Node) initNode() net.Listener {
+	n.next.Id = ""
+	n.prev.Id = ""
 
 	l := new(logger.Logger)
 	l.Init((os.Stdout), n.ip, 0)
@@ -43,7 +43,7 @@ func (n *Node) initNode(ip string, nameServer string, id int) net.Listener {
 
 	n.logger.Info("Started node")
 
-	listener, err := shared.InitRpcServer(n.ip, n)
+	listener, err := shared.InitRpcServer(n.ip + n.rpcPort, n)
 	if err != nil {
 		n.logger.Error(err.Error())
 		os.Exit(1)
@@ -52,17 +52,6 @@ func (n *Node) initNode(ip string, nameServer string, id int) net.Listener {
 	return listener
 }
 
-func createArgs(address string, nodeAddr string, nodeId int) shared.Args {
-	n := shared.NodeInfo{
-		Ip: nodeAddr,
-		Id: nodeId }
-
-	args := shared.Args{
-		Address: address,
-		Node: n }
-
-	return args
-}
 
 
 func (n *Node) joinNetwork() {
@@ -75,7 +64,7 @@ func (n *Node) joinNetwork() {
 		randomNode := util.GetNode(list, n.ip)
 		n.logger.Info("Contacting " + randomNode)
 
-		args := createArgs(randomNode, n.ip, n.id)
+		args := createArgs((randomNode + n.rpcPort), n.ip, n.id)
 		r, err := shared.SingleCall("Node.FindSuccessor", args)
 		if err != nil {
 			n.logger.Debug("Args " + randomNode)
@@ -85,81 +74,97 @@ func (n *Node) joinNetwork() {
 		n.next = r.Next
 		n.prev = r.Prev
 
-		n.logger.Info("My successor is " + strconv.Itoa(n.next.Id))
-		n.logger.Info("My Pre-descessor is " + strconv.Itoa(n.prev.Id))
+		n.logger.Info("My successor is " + n.next.Ip)
+		n.logger.Info("My Pre-descessor is " + n.prev.Ip)
 
-		args = createArgs(n.next.Ip, n.ip, n.id)
+		args = createArgs((n.next.Ip + n.rpcPort), n.ip, n.id)
 		r, err = shared.SingleCall("Node.UpdateSuccessor", args)
 		if err != nil {
 			n.logger.Error(err.Error())
 			return
 		}
 
-		args = createArgs(n.prev.Ip, n.ip, n.id)
+		args = createArgs((n.prev.Ip + n.rpcPort), n.ip, n.id)
 		r, err = shared.SingleCall("Node.UpdatePreDecessor", args)
 		if err != nil {
 			n.logger.Error(err.Error())
 			return
 		}
+		args = updateArgs((n.next.Ip + n.rpcPort), n.id)
+		r, err = shared.SingleCall("Node.SplitKeys", args)
+		if err != nil {
+			n.logger.Error(err.Error())
+			return
+		}
+		n.storage = r.storage
 	}
 }
 
 func (n *Node) PutKey(args shared.Args, reply *shared.Reply) error {
-	if util.InKeySpace(args.Key, n.id, n.prev.Id) {
+	if util.InKeySpace(n.id, args.Key, n.prev.Id) {
 		n.storage[args.Key] = args.Value
 		return nil
 	} else {
-		n.logger.Error("PUT Wrong node, nodeid " + strconv.Itoa(n.id) + " key " + strconv.Itoa(args.Key))
+		n.logger.Error("PUT Wrong node " + args.Key)
 		return ErrPut
 	}
 }
 
 func (n *Node) GetKey(args shared.Args, reply *shared.Reply) error {
-	if util.InKeySpace(args.Key, n.id, n.prev.Id) {
+	if util.InKeySpace(n.id, args.Key, n.prev.Id) {
 		reply.Value = n.storage[args.Key]
 		return nil
 	} else {
-		n.logger.Error("GET Wrong node, nodeid " + strconv.Itoa(n.id) + " key " + strconv.Itoa(args.Key))
+		n.logger.Error("GET Wrong node " + args.Key)
 		return ErrGet
 	}
 }
 
 func (n *Node) UpdateSuccessor(args shared.Args, info *shared.Reply) error {
+	n.update.Lock()
+
+	n.assertPreDecessor(args.Node.Id)
 	n.prev = args.Node
-	n.logger.Info("New Pre-descessor " + strconv.Itoa(n.prev.Id))
+	n.logger.Info("New Pre-descessor " + n.prev.Ip)
+
+	n.update.Unlock()
 	return nil
 }
 
 func (n *Node) UpdatePreDecessor(args shared.Args, info *shared.Reply) error {
+	n.update.Lock()
+
+	n.assertSuccessor(args.Node.Id)
 	n.next = args.Node
-	n.logger.Info("New successor " + strconv.Itoa(n.next.Id))
+	n.logger.Info("New successor " + n.next.Ip)
+
+	n.update.Unlock()
 	return nil
 }
 
 func (n *Node) FindSuccessor(args shared.Args, reply *shared.Reply) error {
-	n.logger.Debug("FindSuccessor on id " + strconv.Itoa(args.Node.Id))
-	if n.next.Id == -1 && n.prev.Id == -1 {
+	//n.logger.Debug("FindSuccessor on id " + args.Node.Id)
+	if n.next.Id == "" && n.prev.Id == "" {
 		reply.Next.Ip = n.ip
 		reply.Next.Id = n.id
 		reply.Prev.Ip = n.ip
 		reply.Prev.Id = n.id
-		n.logger.Debug("Second node case, linking circle")
-	} else if util.InKeySpace(args.Node.Id, n.id, n.prev.Id) {
-		n.logger.Debug("In my keyspace")
+		//n.logger.Debug("Second node case, linking circle")
+	} else if util.InKeySpace(n.id, args.Node.Id, n.prev.Id) {
+	//	n.logger.Debug("In my keyspace")
 		reply.Next.Ip = n.ip
 		reply.Next.Id = n.id
 		reply.Prev = n.prev
 	} else {
-		n.logger.Debug("Not in my keyspace")
+	//	n.logger.Debug("Not in my keyspace")
 
-		args := createArgs(n.next.Ip, args.Node.Ip, args.Node.Id)
+		args := createArgs((n.next.Ip + n.rpcPort), args.Node.Ip, args.Node.Id)
 		r, err := shared.SingleCall("Node.FindSuccessor", args)
 		if err != nil {
 			n.logger.Error(err.Error())
 			return err
 		}
 
-		//reply = r
 		reply.Next = r.Next
 		reply.Prev = r.Prev
 		reply.Value = r.Value
@@ -167,21 +172,30 @@ func (n *Node) FindSuccessor(args shared.Args, reply *shared.Reply) error {
 	return nil
 }
 
+func (n *Node) SplitKeys(args UpdateArgs, reply *UpdateReply) error {
+	reply.Values := storage.SplitStorage(args.Id, args.PrevId, n.storage)
+	return nil
+}
 
-func Run(nameServer string, id string) {
+func Run(nameServer string, httpPort string, rpcPort string) {
 	go util.CheckInterrupt()
 
 	hostName, _ := os.Hostname()
 	hostName = strings.Split(hostName, ".")[0]
 
-	n := new(Node)
-	nodeId, err := strconv.Atoi(id)
-	if err != nil {
-		log.Fatal(err)
-	}
-	l := n.initNode(hostName, nameServer, nodeId)
+	hashId := util.HashKey(hostName)
+
+	n := &Node {
+		id: hashId,
+		ip: hostName,
+		storage: make(map[string]string),
+		nameServer: "http://" + nameServer + httpPort,
+		rpcPort: rpcPort }
+
+	l := n.initNode()
 	defer l.Close()
 
 	n.joinNetwork()
-	n.nodeHttpHandler()
+	n.nodeHttpHandler(httpPort)
+	n.logger.Debug("YOYOYOYOYOYOYOYOYYO")
 }

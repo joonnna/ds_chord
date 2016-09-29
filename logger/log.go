@@ -4,6 +4,9 @@ import (
 	"log"
 	"io"
 	"fmt"
+	"runtime"
+	"strconv"
+	"strings"
 )
 
 type Logger struct {
@@ -31,7 +34,14 @@ func (l *Logger) Init(output io.Writer, preFix string, flag int) {
 }
 
 func (l *Logger) Error(msg string) {
-	l.log.Println(l.formatString(err, msg, red))
+	_, file, line, _ := runtime.Caller(1)
+	tmp := strings.Split(file, "/")
+	f := tmp[len(tmp)- 1]
+
+	errMsg := l.formatString(err, msg, red)
+	str := errMsg + red + f + ":" + strconv.Itoa(line) + reset
+
+	l.log.Println(str)
 }
 
 func (l *Logger) Info(msg string) {

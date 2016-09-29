@@ -3,7 +3,7 @@ package shared
 
 type NodeInfo struct {
 	Ip string
-	Id int
+	Id string
 }
 
 type Reply struct {
@@ -15,8 +15,18 @@ type Reply struct {
 type Args struct {
 	Address string
 	Node NodeInfo
-	Key int
+	Key string
 	Value string
+}
+
+type UpdateReply struct {
+	Values map[string]string
+}
+
+type UpdateArgs struct {
+	Address string
+	Id string
+	PrevId string
 }
 
 
@@ -26,4 +36,5 @@ type RPC interface {
 	UpdatePreDecessor(args Args, reply *Reply) error
 	PutKey(args Args, reply *Reply) error
 	GetKey(args Args, reply *Reply) error
+	SplitKeys(args UpdateArgs, reply *UpdateReply) error
 }

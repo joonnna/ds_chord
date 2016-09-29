@@ -3,9 +3,9 @@ package main
 import (
 	"github.com/joonnna/ds_chord/node"
 	"github.com/joonnna/ds_chord/nameserver"
+	"github.com/joonnna/ds_chord/client"
 	"os"
 	"strings"
-//	"fmt"
 )
 
 
@@ -19,10 +19,13 @@ func main() {
 	switch progType {
 
 		case "nameserver":
-			nameserver.Run()
+			nameserver.Run(args[0])
 
 		case "node":
-			node.Run(args[0], args[1])
+			node.Run(args[0], args[1], args[2])
+
+		case "client":
+			client.Run(args[0], args[1])
 	}
 
 }

@@ -1,28 +1,43 @@
 package util
 
 import (
-	"io/ioutil"
+	"strings"
 	"os"
+	"io"
 	"fmt"
-	"log"
+	"crypto/sha1"
+	"io/ioutil"
 	"github.com/gorilla/mux"
 	"net/http"
 )
 
-func InKeySpace(id int, nodeId int, prevId int) bool {
-	if nodeId < prevId {
-		if (id > nodeId && id > prevId) || (id < nodeId && id < prevId){
+func InKeySpace(currId, newId, prevId string) bool {
+	cmp := strings.Compare(currId, newId)
+	if cmp == 0 {
+		return true
+	}
+	prevCmp := strings.Compare(currId, prevId)
+
+	idPrevCmp := strings.Compare(prevId, newId)
+
+	if prevCmp == -1 {
+		if (cmp == -1 && idPrevCmp == -1) || (cmp == 1 && idPrevCmp == 1) {
 			return true
 		} else {
 			return false
 		}
 	} else {
-		if id < nodeId && id > prevId {
+		if cmp == 1 && idPrevCmp == -1 {
 			return true
 		} else {
 			return false
 		}
 	}
+}
+func HashKey(key string) string {
+	h := sha1.New()
+	io.WriteString(h, key)
+	return string(h.Sum(nil))
 }
 
 func GetNode(list []string, curNode string) string {
@@ -42,15 +57,15 @@ func GetKey(r *http.Request) string {
 
 func CheckInterrupt() {
 	for {
-		m, err := ioutil.ReadAll(os.Stdin)
+		msg, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println(err.Error())
 		}
 
-		fmt.Println("RECEIVED KILL SIGNAL")
-		if string(m) == "kill" {
-			fmt.Println("EXITING")
+		fmt.Println("YOOYOYOYOYOYO")
+		if string(msg) == "kill" {
 			os.Exit(1)
 		}
 	}
 }
+
