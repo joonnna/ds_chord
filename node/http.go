@@ -1,5 +1,6 @@
-package node
 
+package node
+/*
 import (
 	"net"
 	"os"
@@ -7,33 +8,16 @@ import (
 	"github.com/gorilla/mux"
 	"net/http"
 	"encoding/json"
-	"log"
-	"strings"
-	"time"
+//	"log"
 	"github.com/joonnna/ds_chord/util"
 	"github.com/joonnna/ds_chord/node_communication"
 )
 
-func rpcArgs(ip string, key string, value string) shared.Args {
-	args := shared.Args {
-		Key: key,
-		Value: value,
-		Address: ip }
-
-	return args
-}
 
 func (n *Node) nodeHttpHandler(port string) {
 	r := mux.NewRouter()
 	r.HandleFunc("/{key}", n.getHandler).Methods("GET")
 	r.HandleFunc("/{key}", n.putHandler).Methods("PUT")
-	/*
-	err := http.ListenAndServe(port, r)
-	if err != nil {
-		n.logger.Error(err.Error())
-		os.Exit(1)
-	}
-	*/
 
 	l, err := net.Listen("tcp4", port)
 	if err != nil {
@@ -58,22 +42,27 @@ func (n *Node) getHandler(w http.ResponseWriter, r *http.Request) {
 
 	n.logger.Info("GET key " + key)
 
+	var err error
 	var value string
 
 	hashKey := util.HashKey(key)
 
+
 	if util.InKeySpace(n.id, hashKey, n.prev.Id) {
-		value = n.storage[hashKey]
+		value, err = n.store.GetData(hashKey)
+		if err != nil {
+			n.logger.Error(err.Error())
+		}
 	} else {
-		args := createArgs((n.next.Ip + n.rpcPort), n.ip, hashKey)
-		reply, err := shared.SingleCall("Node.FindSuccessor", args)
+		args := createArgs(n.ip, hashKey)
+		reply, err := shared.SingleCall("Node.FindSuccessor", (n.next.Ip + n.rpcPort), args)
 		if err != nil {
 			n.logger.Error(err.Error())
 			return
 		}
 
-		args = rpcArgs((reply.Next.Ip + n.rpcPort), hashKey, value)
-		reply, err = shared.SingleCall("Node.GetKey", args)
+		args = rpcArgs(hashKey, value)
+		reply, err = shared.SingleCall("Node.GetKey", (reply.Next.Ip + n.rpcPort), args)
 		if err != nil {
 			n.logger.Error(err.Error())
 			return
@@ -81,7 +70,7 @@ func (n *Node) getHandler(w http.ResponseWriter, r *http.Request) {
 		value = reply.Value
 	}
 
-	err := json.NewEncoder(w).Encode(value)
+	err = json.NewEncoder(w).Encode(value)
 	if err != nil {
 		n.logger.Error(err.Error())
 	}
@@ -104,62 +93,25 @@ func (n *Node) putHandler(w http.ResponseWriter, r *http.Request) {
 
 	hashKey := util.HashKey(key)
 	if util.InKeySpace(n.id, hashKey, n.prev.Id) {
-		n.storage[hashKey] = value
+		err = n.store.PutData(hashKey, value)
+		if err != nil {
+			n.logger.Error(err.Error())
+		}
 		return
 	}
 
-	args := createArgs((n.next.Ip + n.rpcPort), n.ip, hashKey)
-	reply, err := shared.SingleCall("Node.FindSuccessor", args)
+	args := createArgs(n.ip, hashKey)
+	reply, err := shared.SingleCall("Node.FindSuccessor", (n.next.Ip + n.rpcPort), args)
 	if err != nil {
 		n.logger.Error(err.Error())
 		return
 	}
 
-	args = rpcArgs((reply.Next.Ip + n.rpcPort), hashKey, value)
-	_, err = shared.SingleCall("Node.PutKey", args)
+	args = rpcArgs(hashKey, value)
+	_, err = shared.SingleCall("Node.PutKey", (reply.Next.Ip + n.rpcPort), args)
 	if err != nil {
 		n.logger.Error(err.Error())
 		return
 	}
 }
-
-func (n *Node) putIp() {
-	req, err := http.NewRequest("PUT", n.nameServer+"/", strings.NewReader(n.ip))
-	if err != nil {
-		n.logger.Error(err.Error())
-	}
-
-	timeout := time.Duration(5 * time.Second)
-	client := &http.Client{Timeout : timeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		n.logger.Error(err.Error())
-	} else {
-		resp.Body.Close()
-	}
-}
-
-func (n *Node) getNodeList() []string  {
-	var nodeIps []string
-
-	timeout := time.Duration(5 * time.Second)
-	client := &http.Client{Timeout : timeout}
-
-	r, err := client.Get(n.nameServer)
-	if err != nil {
-		n.logger.Error(err.Error())
-	}
-
-	defer r.Body.Close()
-
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		n.logger.Error(err.Error())
-	}
-
-	err = json.Unmarshal(body, &nodeIps)
-	if err != nil {
-		n.logger.Error(err.Error())
-	}
-	return nodeIps
-}
+*/

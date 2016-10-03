@@ -47,8 +47,8 @@ func sshToNode(ip string) {
 
 func launch(nodeName string, path string, nameServer string, id int) io.WriteCloser {
 	var command string
-	httpPort := ":7300"
-	rpcPort := ":3300"
+	httpPort := ":8432"
+	rpcPort := ":3251"
 
 	if id == -1 {
 		command = "go run " + path + " " + nameServer + "," + httpPort + ",client"
@@ -86,22 +86,21 @@ func main () {
 
 	pipeSlice = append(pipeSlice, pipe)
 
-	time.Sleep((3 * time.Second))
-
+	time.Sleep(3 * time.Second)
 
 	for idx, ip := range nodeList {
 		if idx != 0 {
 			if idx == 3 {
 				pipe = launch(ip, path, nameServerIp, 1)
 			} else if idx == len(nodeList) - 1 {
-				time.Sleep((8 * time.Second))
+				time.Sleep((10 * time.Second))
 				pipe = launch(ip, path, nameServerIp, -1)
 			} else {
 				pipe = launch(ip, path, nameServerIp, idx+2)
 			}
 		}
-		pipeSlice = append(pipeSlice, pipe)
 
+		pipeSlice = append(pipeSlice, pipe)
 	}
 
 	c := make(chan os.Signal)

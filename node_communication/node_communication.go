@@ -12,6 +12,7 @@ import(
 type Comm struct {
 	Client *rpc.Client
 }
+
 func InitRpcServer(address string, api RPC) (net.Listener, error) {
 	server := rpc.NewServer()
 	err := server.RegisterName("Node", api)
@@ -57,21 +58,19 @@ func dialNode(address string) (*rpc.Client, error) {
 	return rpc.NewClient(connection), nil
 }
 
-
-func SingleCall(method string, args Args) (*Reply, error) {
-	reply := &Reply{}
-
-	c, err := setupConn(args.Address)
+func SingleCall(method string, address string, args interface{}, reply interface{})  error {
+	//var reply interface{}
+	c, err := setupConn(address)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = c.Client.Call(method, args, reply)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	c.Client.Close()
 
-	return reply, nil
+	return nil
 }

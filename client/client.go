@@ -94,22 +94,21 @@ func (c *Client) assertKeys() int {
 
 	for i := 0; i < numKeys; i++ {
 
-		c.getNodeList()
-
 		key, value := c.genKeyValue()
 
 		c.putValue(c.nodeIps[0], key, value)
 
 		getVal := c.getValue(c.nodeIps[0], key)
 
+		c.log.Debug(getVal)
 		tmp := strings.Split(getVal, "\"")
 		if len(tmp) < 1 {
-			c.log.Error("Failed to PUT/GET key " + key)
+			c.log.Error("Failed to PUT/GET value " + value)
+
 			errors += 1
 			continue
 		}
 		getVal = tmp[1]
-		c.log.Debug(value)
 		//c.log.Debug("NEW VAL : " + tmp)
 
 		if !(value == getVal) {
@@ -132,7 +131,9 @@ func Run(nameServer string, port string) {
 	c.log.Debug(port)
 	c.log.Info("Started Client")
 	c.log.Debug(c.nameServer)
+
+	c.getNodeList()
 	numErrors := c.assertKeys()
-	c.log.Info("Number of PUT/GET errors " + strconv.Itoa(numErrors))
+	c.log.Error("Number of PUT/GET errors " + strconv.Itoa(numErrors))
 }
 

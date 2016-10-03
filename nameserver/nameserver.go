@@ -53,28 +53,26 @@ func (n *nameServer) httpServer() {
 func (n *nameServer) getHandler(w http.ResponseWriter, r *http.Request) {
 	n.logger.Info("Received get in nameserver")
 	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
 
 	err := json.NewEncoder(w).Encode(n.nodeIps)
 	if err != nil {
 		n.logger.Error(ErrEncode.Error())
 	}
-
-	n.mutex.RUnlock()
 }
 
 func (n *nameServer) putHandler(w http.ResponseWriter, r *http.Request) {
 	n.logger.Info("Received put in nameserver")
 	n.mutex.Lock()
+	defer n.mutex.Unlock()
 
 	newIp, err:= ioutil.ReadAll(r.Body)
 	if err != nil {
-		n.mutex.Unlock()
 		n.logger.Error(ErrRead.Error())
 		return
 	}
 	n.nodeIps = append(n.nodeIps, string(newIp))
-
-	n.mutex.Unlock()
 }
 
 func Run(port string) {

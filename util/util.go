@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"github.com/gorilla/mux"
 	"net/http"
+	"github.com/joonnna/ds_chord/node_communication"
 )
 
 func InKeySpace(currId, newId, prevId string) bool {
@@ -69,3 +70,30 @@ func CheckInterrupt() {
 	}
 }
 
+func RpcArgs(key string, value string) shared.Args {
+	args := shared.Args {
+		Key: key,
+		Value: value }
+
+	return args
+}
+
+
+func CreateArgs(nodeAddr string, nodeId string) shared.Args {
+	n := shared.NodeInfo{
+		Ip: nodeAddr,
+		Id: nodeId }
+
+	args := shared.Args{
+		Node: n }
+
+	return args
+}
+
+func UpdateArgs(id, prevId string) shared.UpdateArgs {
+	args := shared.UpdateArgs {
+		Id: id,
+		PrevId: prevId }
+
+	return args
+}

@@ -1,18 +1,23 @@
 package node
 
 import (
+	"io/ioutil"
+	"encoding/json"
+	"net/http"
+	"time"
 	"strings"
-	"github.com/joonnna/ds_chord/logger"
+//	"github.com/joonnna/ds_chord/logger"
+//	"github.com/joonnna/ds_chord/node_communication"
 )
 
 
 func (n *Node) assertSuccessor(newSucc string) {
-	cmp := strings.Compare(n.next.Id, newSucc)
+	cmp := strings.Compare(n.Next.Id, newSucc)
 	if cmp == 0 {
 		n.logger.Error("Invalid successor")
 	}
 
-	c := strings.Compare(n.next.Id, n.id)
+	c := strings.Compare(n.Next.Id, n.id)
 	if c == 1 && cmp == -1 {
 		n.logger.Error("Invalid successor")
 	}
@@ -30,23 +35,43 @@ func (n *Node) assertPreDecessor(newPre string) {
 	}
 }
 
-func createArgs(address string, nodeAddr string, nodeId string) shared.Args {
-	n := shared.NodeInfo{
-		Ip: nodeAddr,
-		Id: nodeId }
+func (n *Node) putIp() {
+	req, err := http.NewRequest("PUT", n.NameServer+"/", strings.NewReader(n.ip))
+	if err != nil {
+		n.logger.Error(err.Error())
+	}
 
-	args := shared.Args{
-		Address: address,
-		Node: n }
-
-	return args
+	timeout := time.Duration(5 * time.Second)
+	client := &http.Client{Timeout : timeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		n.logger.Error(err.Error())
+	} else {
+		resp.Body.Close()
+	}
 }
 
-func updateArgs(address, id, prevId string) shared.UpdateArgs {
-	args := shared.UpdateArgs {
-		Address: address,
-		Id: id,
-		PrevId: prevId }
+func GetNodeList(nameServer string) ([]string, error)  {
+	var nodeIps []string
 
-	return args
+	timeout := time.Duration(5 * time.Second)
+	client := &http.Client{Timeout : timeout}
+
+	r, err := client.Get(nameServer)
+	if err != nil {
+		return nil, err
+	}
+
+	defer r.Body.Close()
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(body, &nodeIps)
+	if err != nil {
+		return nil, err
+	}
+	return nodeIps, nil
 }

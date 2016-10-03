@@ -13,7 +13,6 @@ type Reply struct {
 }
 
 type Args struct {
-	Address string
 	Node NodeInfo
 	Key string
 	Value string
@@ -24,7 +23,6 @@ type UpdateReply struct {
 }
 
 type UpdateArgs struct {
-	Address string
 	Id string
 	PrevId string
 }
@@ -36,5 +34,5 @@ type RPC interface {
 	UpdatePreDecessor(args Args, reply *Reply) error
 	PutKey(args Args, reply *Reply) error
 	GetKey(args Args, reply *Reply) error
-	SplitKeys(args UpdateArgs, reply *UpdateReply) error
+//	SplitKeys(args UpdateArgs, reply *UpdateReply) error
 }

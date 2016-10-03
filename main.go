@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/joonnna/ds_chord/node"
+	"github.com/joonnna/ds_chord/storage"
 	"github.com/joonnna/ds_chord/nameserver"
 	"github.com/joonnna/ds_chord/client"
 	"os"
@@ -22,7 +22,7 @@ func main() {
 			nameserver.Run(args[0])
 
 		case "node":
-			node.Run(args[0], args[1], args[2])
+			storage.Run(args[0], args[1], args[2])
 
 		case "client":
 			client.Run(args[0], args[1])
