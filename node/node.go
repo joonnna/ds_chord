@@ -2,7 +2,8 @@ package node
 
 import (
 	//"fmt"
-	"time"
+//	"crypto/sha1"
+//	"time"
 	"net"
 	"strings"
 	"os"
@@ -10,21 +11,23 @@ import (
 	"github.com/joonnna/ds_chord/util"
 	"github.com/joonnna/ds_chord/logger"
 	"sync"
+	"math/big"
 )
 
 type Node struct {
 	data map[string]string
 	ip string
-	id string
+	id *big.Int
 	NameServer string
 	RpcPort string
 	logger *logger.Logger
 
 	listener net.Listener
-	succList []shared.NodeInfo
 
 	Next shared.NodeInfo
 	prev shared.NodeInfo
+
+	table fingerTable
 
 	update sync.Mutex
 }
@@ -33,19 +36,18 @@ func InitNode(nameServer, httpPort, rpcPort string) *Node {
 	hostName, _ := os.Hostname()
 	hostName = strings.Split(hostName, ".")[0]
 
-	hashId := util.HashKey(hostName)
+	id := util.ConvertKey(hostName)
 
 	log := new(logger.Logger)
 	log.Init((os.Stdout), hostName, 0)
 
 	n := &Node {
-		id: hashId,
+		id: id,
 		ip: hostName,
 		logger: log,
 		NameServer: "http://" + nameServer + httpPort,
 		RpcPort: rpcPort,
 		data: make(map[string]string) }
-
 
 
 	l, err := shared.InitRpcServer(hostName + rpcPort, n)
@@ -55,16 +57,14 @@ func InitNode(nameServer, httpPort, rpcPort string) *Node {
 	}
 
 	n.listener = l
-	n.Next.Id = ""
-	n.prev.Id = ""
-
 
 	n.logger.Info("Started node")
 
+	n.initFingerTable()
 	return n
 }
 
-
+/*
 func (n *Node) joinNetwork() {
 	n.putIp()
 	list, err := GetNodeList(n.NameServer)
@@ -102,7 +102,7 @@ func (n *Node) joinNetwork() {
 		}
 		//n.store = r.store
 
-		*/
+
 		args = util.CreateArgs(n.ip, n.id)
 		err = shared.SingleCall("Node.UpdateSuccessor", (n.Next.Ip + n.RpcPort), args, r)
 		if err != nil {
@@ -119,12 +119,12 @@ func (n *Node) joinNetwork() {
 	}
 }
 
-
+*/
 func Run(n *Node) {
 	defer n.listener.Close()
 
-	n.joinNetwork()
-	for {
-		time.Sleep(time.Second * 5)
-	}
+	n.join()
+
+	go n.fixFingers()
+	n.stabilize()
 }

@@ -6,30 +6,31 @@ import (
 	"net/http"
 	"time"
 	"strings"
+	"math/big"
 //	"github.com/joonnna/ds_chord/logger"
 //	"github.com/joonnna/ds_chord/node_communication"
 )
 
 
-func (n *Node) assertSuccessor(newSucc string) {
-	cmp := strings.Compare(n.Next.Id, newSucc)
+func (n *Node) assertSuccessor(newSucc *big.Int) {
+	cmp := n.Next.Id.Cmp(newSucc)
 	if cmp == 0 {
 		n.logger.Error("Invalid successor")
 	}
 
-	c := strings.Compare(n.Next.Id, n.id)
+	c := n.Next.Id.Cmp(n.id)
 	if c == 1 && cmp == -1 {
 		n.logger.Error("Invalid successor")
 	}
 }
 
-func (n *Node) assertPreDecessor(newPre string) {
-	cmp := strings.Compare(n.prev.Id, newPre)
+func (n *Node) assertPreDecessor(newPre *big.Int) {
+	cmp := n.prev.Id.Cmp(newPre)
 	if cmp == 0 {
 		n.logger.Error("Invalid predecessor")
 	}
 
-	c := strings.Compare(n.prev.Id, n.id)
+	c := n.prev.Id.Cmp(n.id)
 	if c == -1 && cmp == 1 {
 		n.logger.Error("Invalid predecessor")
 	}

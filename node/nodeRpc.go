@@ -17,24 +17,24 @@ var (
 
 func (n *Node) PutKey(args shared.Args, reply *shared.Reply) error {
 	if util.InKeySpace(n.id, args.Key, n.prev.Id) {
-		n.data[args.Key] = args.Value
+		n.data[args.Key.String()] = args.Value
 		return nil
 	} else {
-		n.logger.Error("PUT Wrong node " + args.Key)
+		n.logger.Error("PUT Wrong node " + args.Key.String())
 		return ErrPut
 	}
 }
 
 func (n *Node) GetKey(args shared.Args, reply *shared.Reply) error {
 	if util.InKeySpace(n.id, args.Key, n.prev.Id) {
-		reply.Value = n.data[args.Key]
+		reply.Value = n.data[args.Key.String()]
 		return nil
 	} else {
-		n.logger.Error("GET Wrong node " + args.Key)
+		n.logger.Error("GET Wrong node " + args.Key.String())
 		return ErrGet
 	}
 }
-
+/*
 func (n *Node) UpdateSuccessor(args shared.Args, info *shared.Reply) error {
 	n.update.Lock()
 
@@ -87,6 +87,9 @@ func (n *Node) FindSuccessor(args shared.Args, reply *shared.Reply) error {
 	}
 	return nil
 }
+
+*/
+
 /*
 func (n *Node) SplitKeys(args shared.UpdateArgs, reply *shared.UpdateReply) error {
 	reply.Values = n.store.SplitStorage(args.Id, args.PrevId)

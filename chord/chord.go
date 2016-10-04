@@ -26,11 +26,11 @@ func Init(nameServer, httpPort, rpcPort string) *Chord {
 }
 
 func (c *Chord) FindSuccessor(id string) (string, error) {
-	hashKey := util.HashKey(id)
+	key := util.ConvertKey(id)
 
 	r := &shared.Reply{}
 	args := &shared.Args{
-		Key: hashKey }
+		Key: key }
 	err := shared.SingleCall("Node.FindSuccessor", (c.node.Next.Ip + c.node.RpcPort), args, r)
 	if err != nil {
 		return "", ErrFind
@@ -40,10 +40,10 @@ func (c *Chord) FindSuccessor(id string) (string, error) {
 
 
 func (c *Chord) PutKey(address, key, value string) error {
-	hashKey := util.HashKey(key)
+	id := util.ConvertKey(key)
 
 	r := &shared.Reply{}
-	args := util.RpcArgs(hashKey, value)
+	args := util.RpcArgs(id, value)
 	err := shared.SingleCall("Node.PutKey", (address + c.node.RpcPort), args, r)
 	if err != nil {
 		return ErrPut
@@ -53,11 +53,11 @@ func (c *Chord) PutKey(address, key, value string) error {
 
 
 func (c *Chord) GetKey(address, key string) (string, error) {
-	hashKey := util.HashKey(key)
+	id := util.ConvertKey(key)
 
 	r := &shared.Reply{}
 	args := &shared.Args{
-		Key: hashKey}
+		Key: id}
 
 	err := shared.SingleCall("Node.GetKey", (address + c.node.RpcPort), args, r)
 	if err != nil {

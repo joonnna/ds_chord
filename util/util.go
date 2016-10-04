@@ -1,7 +1,8 @@
 package util
 
 import (
-	"strings"
+	"math/big"
+//	"strings"
 	"os"
 	"io"
 	"fmt"
@@ -12,14 +13,14 @@ import (
 	"github.com/joonnna/ds_chord/node_communication"
 )
 
-func InKeySpace(currId, newId, prevId string) bool {
-	cmp := strings.Compare(currId, newId)
+func InKeySpace(currId, newId, prevId *big.Int) bool {
+	cmp := currId.Cmp(newId)
 	if cmp == 0 {
 		return true
 	}
-	prevCmp := strings.Compare(currId, prevId)
+	prevCmp := currId.Cmp(prevId)
 
-	idPrevCmp := strings.Compare(prevId, newId)
+	idPrevCmp := prevId.Cmp(newId)
 
 	if prevCmp == -1 {
 		if (cmp == -1 && idPrevCmp == -1) || (cmp == 1 && idPrevCmp == 1) {
@@ -35,10 +36,13 @@ func InKeySpace(currId, newId, prevId string) bool {
 		}
 	}
 }
-func HashKey(key string) string {
+func ConvertKey(key string) *big.Int {
 	h := sha1.New()
 	io.WriteString(h, key)
-	return string(h.Sum(nil))
+
+	ret := new(big.Int)
+
+	return ret.SetBytes(h.Sum(nil))
 }
 
 func GetNode(list []string, curNode string) string {
@@ -63,14 +67,13 @@ func CheckInterrupt() {
 			fmt.Println(err.Error())
 		}
 
-		fmt.Println("YOOYOYOYOYOYO")
 		if string(msg) == "kill" {
 			os.Exit(1)
 		}
 	}
 }
 
-func RpcArgs(key string, value string) shared.Args {
+func RpcArgs(key *big.Int, value string) shared.Args {
 	args := shared.Args {
 		Key: key,
 		Value: value }
@@ -79,7 +82,7 @@ func RpcArgs(key string, value string) shared.Args {
 }
 
 
-func CreateArgs(nodeAddr string, nodeId string) shared.Args {
+func CreateArgs(nodeAddr string, nodeId *big.Int) shared.Args {
 	n := shared.NodeInfo{
 		Ip: nodeAddr,
 		Id: nodeId }
@@ -90,7 +93,7 @@ func CreateArgs(nodeAddr string, nodeId string) shared.Args {
 	return args
 }
 
-func UpdateArgs(id, prevId string) shared.UpdateArgs {
+func UpdateArgs(id *big.Int, prevId string) shared.UpdateArgs {
 	args := shared.UpdateArgs {
 		Id: id,
 		PrevId: prevId }

@@ -73,7 +73,7 @@ func launch(nodeName string, path string, nameServer string, id int) io.WriteClo
 
 
 func main () {
-	numHosts := 40
+	numHosts := 3
 	nodeList := getNodeList(numHosts)
 
 	path := "./go/src/github.com/joonnna/ds_chord/main.go"
@@ -93,8 +93,8 @@ func main () {
 			if idx == 3 {
 				pipe = launch(ip, path, nameServerIp, 1)
 			} else if idx == len(nodeList) - 1 {
-				time.Sleep((10 * time.Second))
-				pipe = launch(ip, path, nameServerIp, -1)
+				//time.Sleep((10 * time.Second))
+				//pipe = launch(ip, path, nameServerIp, -1)
 			} else {
 				pipe = launch(ip, path, nameServerIp, idx+2)
 			}
