@@ -47,8 +47,8 @@ func sshToNode(ip string) {
 
 func launch(nodeName string, path string, nameServer string, id int) io.WriteCloser {
 	var command string
-	httpPort := ":8432"
-	rpcPort := ":3251"
+	httpPort := ":7432"
+	rpcPort := ":4321"
 
 	if id == -1 {
 		command = "go run " + path + " " + nameServer + "," + httpPort + ",client"
