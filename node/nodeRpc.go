@@ -6,6 +6,7 @@ import (
 //	"github.com/joonnna/ds_chord/storage"
 	"github.com/joonnna/ds_chord/util"
 	"errors"
+	"math/big"
 )
 
 var (
@@ -16,7 +17,8 @@ var (
 
 
 func (n *Node) PutKey(args shared.Args, reply *shared.Reply) error {
-	if util.InKeySpace(n.id, args.Key, n.prev.Id) {
+	ok, _ := util.InKeySpace(n.id, args.Key, n.prev.Id)
+	if ok {
 		n.data[args.Key.String()] = args.Value
 		return nil
 	} else {
@@ -26,13 +28,82 @@ func (n *Node) PutKey(args shared.Args, reply *shared.Reply) error {
 }
 
 func (n *Node) GetKey(args shared.Args, reply *shared.Reply) error {
-	if util.InKeySpace(n.id, args.Key, n.prev.Id) {
+	ok, _ := util.InKeySpace(n.id, args.Key, n.prev.Id)
+	if ok {
 		reply.Value = n.data[args.Key.String()]
 		return nil
 	} else {
 		n.logger.Error("GET Wrong node " + args.Key.String())
 		return ErrGet
 	}
+}
+
+
+func (n *Node) FindSuccessor(args shared.Test, reply *shared.Reply) error {
+	tmp := new(big.Int)
+	tmp.SetBytes(args.Id)
+	test := shared.NodeInfo {
+		Ip: args.Ip,
+		Id: *tmp }
+
+	if n.table.fingers[1].node.Ip == n.ip {
+		reply.Next.Ip = n.ip
+		reply.Next.Id = n.id
+		reply.Prev = n.prev
+		return nil
+	}
+	r, err := n.findPreDecessor(test.Id)
+	if err != nil {
+		return err
+	}
+	reply.Next = r.Next
+	reply.Prev = r.Prev
+	return nil
+}
+
+
+func (n *Node) ClosestPrecedingFinger(args shared.Test, reply *shared.Reply) error{
+	cmpId := new(big.Int)
+	cmpId.SetBytes(args.Id)
+	for i := (lenOfId-1); i >= 1; i-- {
+		entry := n.table.fingers[i].node.Id
+		ok, _ := util.BetweenNodes(n.id, *cmpId, entry)
+		if entry.BitLen() != 0 && ok {
+			reply.Next = n.table.fingers[i].node
+			return nil
+		}
+	}
+
+	return ErrFingerNotFound
+}
+func (n *Node) GetPreDecessor(args int, reply *shared.Test) error {
+	id := n.prev.Id.Bytes()
+	reply.Id = id
+	reply.Ip = n.prev.Ip
+	return nil
+}
+
+func (n *Node) GetSuccessor(args int, reply *shared.Test) error {
+	id := n.table.fingers[1].node.Id.Bytes()
+	reply.Id = id
+	reply.Ip = n.table.fingers[1].node.Ip
+	return nil
+}
+
+func (n *Node) Notify(args shared.Test, reply *shared.Reply) error {
+	tmp := new(big.Int)
+	tmp.SetBytes(args.Id)
+	n.logger.Info("RECEIVED NOTIFY")
+	ok, _ := util.BetweenNodes(n.prev.Id, n.id, *tmp)
+	if n.prev.Ip == n.ip || ok {
+		node := shared.NodeInfo {
+			Id: *tmp,
+			Ip: args.Ip	}
+		n.logger.Info("UPDATING PRE")
+		n.prev = node
+		n.logger.Info(n.prev.Ip)
+	}
+	return nil
 }
 /*
 func (n *Node) UpdateSuccessor(args shared.Args, info *shared.Reply) error {

@@ -17,7 +17,7 @@ import (
 type Node struct {
 	data map[string]string
 	ip string
-	id *big.Int
+	id big.Int
 	NameServer string
 	RpcPort string
 	logger *logger.Logger
@@ -124,6 +124,13 @@ func Run(n *Node) {
 	defer n.listener.Close()
 
 	n.join()
+	n.add()
+	go n.updateState()
+/*
+	for {
+		n.logger.Debug("SLEEEPING")
+		time.Sleep(time.Second *5)
+	}*/
 
 	go n.fixFingers()
 	n.stabilize()

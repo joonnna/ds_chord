@@ -6,7 +6,12 @@ import (
 
 type NodeInfo struct {
 	Ip string
-	Id *big.Int
+	Id big.Int
+}
+
+type Test struct {
+	Ip string
+	Id []byte
 }
 
 type Reply struct {
@@ -17,7 +22,7 @@ type Reply struct {
 
 type Args struct {
 	Node NodeInfo
-	Key *big.Int
+	Key big.Int
 	Value string
 }
 
@@ -26,18 +31,20 @@ type UpdateReply struct {
 }
 
 type UpdateArgs struct {
-	Id *big.Int
+	Id big.Int
 	PrevId string
 }
 
 
 type RPC interface {
-	FindSuccessor(args Args, reply *Reply) error
+	FindSuccessor(args Test, reply *Reply) error
 //	UpdateSuccessor(args Args, reply *Reply) error
 //	UpdatePreDecessor(args Args, reply *Reply) error
-	Notify(args Args, reply *Reply) error
-	ClosestPrecedingFinger(args Args, reply *Reply) error
+	Notify(args Test, reply *Reply) error
+	ClosestPrecedingFinger(args Test, reply *Reply) error
 	PutKey(args Args, reply *Reply) error
 	GetKey(args Args, reply *Reply) error
-//	SplitKeys(args UpdateArgs, reply *UpdateReply) error
+	GetPreDecessor(args int, reply *Test) error
+	GetSuccessor(args int, reply *Test) error
+	//	SplitKeys(args UpdateArgs, reply *UpdateReply) error
 }

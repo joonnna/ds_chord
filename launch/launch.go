@@ -12,8 +12,12 @@ import (
 	"strings"
 	"strconv"
 	"time"
+	"math/rand"
 )
-
+var (
+	http = (rand.Int() % 8000) + 4200
+	rpc = (rand.Int() % 8000) + 4200
+)
 func cleanUp(pipeSlice []io.WriteCloser) {
 	fmt.Println("CLEANUP")
 	for _, pipe := range pipeSlice {
@@ -47,8 +51,9 @@ func sshToNode(ip string) {
 
 func launch(nodeName string, path string, nameServer string, id int) io.WriteCloser {
 	var command string
-	httpPort := ":8432"
-	rpcPort := ":3251"
+
+	httpPort := ":" + strconv.Itoa(http)
+	rpcPort := ":" + strconv.Itoa(rpc)
 
 	if id == -1 {
 		command = "go run " + path + " " + nameServer + "," + httpPort + ",client"
@@ -73,7 +78,7 @@ func launch(nodeName string, path string, nameServer string, id int) io.WriteClo
 
 
 func main () {
-	numHosts := 3
+	numHosts := 20
 	nodeList := getNodeList(numHosts)
 
 	path := "./go/src/github.com/joonnna/ds_chord/main.go"
@@ -90,19 +95,20 @@ func main () {
 
 	for idx, ip := range nodeList {
 		if idx != 0 {
-			if idx == 3 {
+			/*if idx == 3 {
 				pipe = launch(ip, path, nameServerIp, 1)
-			} else if idx == len(nodeList) - 1 {
-				//time.Sleep((10 * time.Second))
-				//pipe = launch(ip, path, nameServerIp, -1)
 			} else {
-				pipe = launch(ip, path, nameServerIp, idx+2)
-			}
+			*/
+		 	pipe = launch(ip, path, nameServerIp, idx+2)
+			//}
 		}
 
 		pipeSlice = append(pipeSlice, pipe)
 	}
 
+				//else if idx == len(nodeList) - 1 {
+				//time.Sleep((10 * time.Second))
+				//pipe = launch(ip, path, nameServerIp, -1)
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c

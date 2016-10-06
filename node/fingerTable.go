@@ -16,7 +16,7 @@ const (
 
 type fingerEntry struct {
 	node shared.NodeInfo
-	start *big.Int
+	start big.Int
 }
 
 type fingerTable struct {
@@ -29,7 +29,7 @@ var (
 )
 
 
-func calcStart(exponent int, modExp int, id *big.Int) *big.Int {
+func calcStart(exponent int, modExp int, id big.Int) big.Int {
 	base2 := big.NewInt(int64(2))
 	k := big.NewInt(int64(exponent))
 
@@ -37,7 +37,7 @@ func calcStart(exponent int, modExp int, id *big.Int) *big.Int {
 	tmp.Exp(base2, k, nil)
 
 	sum := big.NewInt(int64(0))
-	sum.Add(tmp, id)
+	sum.Add(tmp, &id)
 
 	modExponent := big.NewInt(int64(modExp))
 	mod := big.NewInt(int64(0))
@@ -47,7 +47,7 @@ func calcStart(exponent int, modExp int, id *big.Int) *big.Int {
 
 	ret.Mod(sum, mod)
 
-	return ret
+	return *ret
 }
 
 
@@ -56,59 +56,76 @@ func (n *Node) initFingerTable() {
 
 	for i := 1; i < (lenOfId-1); i++ {
 		n.table.fingers[i].start = calcStart(i, lenOfId, n.id)
-		n.logger.Debug(n.table.fingers[i].start.String())
 	}
 	n.logger.Debug("Inited finger table")
 }
 
-
-
-func (n *Node) FindSuccessor(args shared.Args, reply *shared.Reply) error {
-	r, err := n.findPreDecessor(args.Node)
-	if err != nil {
-		return err
-	}
-	reply.Next = r.Next
-	return nil
-}
-
-
-
 func (n *Node) fixFingers() {
 	for {
 		index := rand.Int() % lenOfId
-
+		if index == 1 {
+			index = 2
+		}
 		r := &shared.Reply{}
-		args := shared.NodeInfo {
+		args := shared.Test {
 			Ip: n.table.fingers[1].node.Ip,
-			Id: n.table.fingers[index].start }
-		err := shared.SingleCall("Node.Findsuccessor", (n.table.fingers[1].node.Ip + n.RpcPort), args, r)
+			Id: n.table.fingers[index].start.Bytes() }
+		err := shared.SingleCall("Node.FindSuccessor", (n.table.fingers[1].node.Ip + n.RpcPort), args, r)
 		if err != nil {
+			n.logger.Error("FAILED TO SET SUCCESOR")
 			n.logger.Error(err.Error())
 		}
 
+		n.logger.Info("SET SUCCESSOR")
 		n.table.fingers[index].node = r.Next
 		time.Sleep(time.Second*5)
 	}
 }
 
 func(n *Node) stabilize() {
+	var succ string
 	for {
-		currPre, err := n.findPreDecessor(n.Next)
-		if err != nil {
-			n.logger.Error(err.Error())
-			time.Sleep(time.Second*5)
-			continue
-		}
-		if util.InKeySpace(n.table.fingers[1].node.Id, currPre.Prev.Id, n.id) {
-			n.table.fingers[1].node = currPre.Prev
+
+		n.logger.Info("STABILIZING")
+		arg := 0
+
+		r := &shared.Test{}
+		succ = n.table.fingers[1].node.Ip
+	/*
+		if succ == n.ip {
+			r.Id = n.id.Bytes()
+			r.Ip = n.ip
+		} else {*/
+			err := shared.SingleCall("Node.GetPreDecessor", (succ + n.RpcPort), arg, r)
+			if err != nil {
+				n.logger.Error(err.Error())
+				time.Sleep(time.Second*5)
+				continue
+			}
+		//}
+		n.logger.Debug("Found predecessor and want to stabilize, pre : " + r.Ip)
+		tmp := new(big.Int)
+		tmp.SetBytes(r.Id)
+
+		ok, _ := util.BetweenNodes(n.id, n.table.fingers[1].node.Id, *tmp)
+		if succ == n.ip || ok {
+			n.logger.Debug("New succ is :" + r.Ip)
+			n.table.fingers[1].node.Ip = r.Ip
+			n.table.fingers[1].node.Id = *tmp
+			if n.table.fingers[1].node.Ip == n.ip {
+				n.logger.Debug("Found myself as succ, sleeping")
+				time.Sleep(time.Second*5)
+				continue
+			}
 		}
 
-		r := &shared.Reply{}
-		args := shared.NodeInfo {
-			Ip: n.table.fingers[1].node.Ip,
-			Id: n.table.fingers[1].node.Id }
-		err = shared.SingleCall("Node.Notify", (n.table.fingers[1].node.Ip + n.RpcPort), args, r)
+		args := shared.Test {
+			Ip: n.ip,
+			Id: n.id.Bytes()}
+
+		reply := &shared.Reply{}
+		n.logger.Info("SENDING NOTIFY")
+		err = shared.SingleCall("Node.Notify", (n.table.fingers[1].node.Ip + n.RpcPort), args, reply)
 		if err != nil {
 			n.logger.Error(err.Error())
 		}
@@ -117,6 +134,8 @@ func(n *Node) stabilize() {
 }
 
 func (n *Node) join() {
+	n.putIp()
+
 	list, err := GetNodeList(n.NameServer)
 	if err != nil {
 		n.logger.Error(err.Error())
@@ -128,62 +147,90 @@ func (n *Node) join() {
 			Id: n.id,
 			Ip: n.ip }
 		n.table.fingers[1].node = self
+		n.prev = self
+		n.logger.Debug("ONLY MYSELF CASE")
 		return
 	}
-
-	node := shared.NodeInfo{
+	n.logger.Debug("NOT MYSELF CASE")
+	node := shared.Test {
 		Ip: n.ip,
-		Id: n.id }
-	args := shared.Args{
-		Node: node }
+		Id: n.id.Bytes() }
 
 	r := &shared.Reply{}
-
-	err = shared.SingleCall("Node.FindSuccessor", (randomNode +n.RpcPort), args, r)
+	n.logger.Debug(randomNode)
+	err = shared.SingleCall("Node.FindSuccessor", (randomNode + n.RpcPort), node, r)
 	if err != nil {
 		n.logger.Error(err.Error())
 		return
 	}
 
+	n.prev.Id = n.id
+	n.prev.Ip = n.ip
 	n.table.fingers[1].node = r.Next
+	n.logger.Debug("Finished joining, succ : " + r.Next.Ip)
 }
 
-
-func (n *Node) Notify(args shared.Args, reply *shared.Reply) error {
-	if n.prev.Id == nil || util.InKeySpace(n.id, args.Node.Id, n.prev.Id) {
-		n.prev = args.Node
-	}
-	return nil
-}
-
-func (n *Node) findPreDecessor(node shared.NodeInfo) (*shared.Reply, error) {
-	currNode := node
+func (n *Node) closestFinger(id big.Int) (shared.NodeInfo, error) {
 	r := &shared.Reply{}
-	for {
-		if util.InKeySpace(n.Next.Id, currNode.Id, n.id) {
-			return r, nil
-		}
-		args := shared.Args{
-			Key: node.Id }
+	args := shared.Test {
+		Id: id.Bytes() }
 
-		err := shared.SingleCall("Node.ClosestPrecedingFinger", (node.Ip + n.RpcPort), args, r)
+	err := n.ClosestPrecedingFinger(args, r)
+	if err != nil {
+		err = shared.SingleCall("Node.ClosestPrecedingFinger", (n.table.fingers[1].node.Ip + n.RpcPort), args, r)
+	}
+
+	return r.Next, err
+}
+
+func (n *Node) getSucc(ip string) (shared.NodeInfo, error) {
+	args := 0
+	r := &shared.Test{}
+
+	err := shared.SingleCall("Node.GetSuccessor", (ip + n.RpcPort), args, r)
+
+	tmp := new(big.Int)
+	tmp.SetBytes(r.Id)
+	retVal := shared.NodeInfo {
+		Ip: r.Ip,
+		Id: *tmp }
+	return retVal, err
+}
+
+func (n *Node) findPreDecessor(id big.Int) (*shared.Reply, error) {
+	var err error
+
+	self := shared.NodeInfo {
+		Ip: n.ip,
+		Id: n.id }
+	currNode := self
+	succ := n.table.fingers[1].node
+
+	r := &shared.Reply{}
+
+	for {
+		ok, str := util.InKeySpace(currNode.Id, succ.Id, id);
+		if !ok {
+			break
+		}
+
+		succ, err = n.getSucc(currNode.Ip)
 		if err != nil {
 			n.logger.Error(err.Error())
 			return nil, err
 		}
-		currNode = r.Next
-	}
-}
 
-func (n *Node) ClosestPrecedingFinger(args shared.Args, reply *shared.Reply) error{
-	for i := lenOfId; i >= 1; i-- {
-		entry := n.table.fingers[i].node.Id
-		if util.InKeySpace(args.Key, entry, n.id){
-			reply.Next = n.table.fingers[i].node
-			reply.Prev = n.prev
-			return nil
+		currNode, err = n.closestFinger(id)
+		if err != nil {
+			n.logger.Debug("STR: " + str)
+			n.logger.Error(err.Error())
+			return nil, err
 		}
 	}
 
-	return ErrFingerNotFound
+	r.Next = succ
+	r.Prev = currNode
+
+	return r, nil
 }
+

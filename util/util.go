@@ -3,24 +3,80 @@ package util
 import (
 	"math/big"
 //	"strings"
+	"fmt"
 	"os"
 	"io"
-	"fmt"
 	"crypto/sha1"
 	"io/ioutil"
 	"github.com/gorilla/mux"
 	"net/http"
 	"github.com/joonnna/ds_chord/node_communication"
 )
+/* With  Upper Inlcude */
+func InKeySpace(start, end, newId big.Int) (bool, string) {
+	var ret bool
 
-func InKeySpace(currId, newId, prevId *big.Int) bool {
-	cmp := currId.Cmp(newId)
+	startEndCmp := start.Cmp(&end)
+
+	if startEndCmp == -1 {
+		if start.Cmp(&newId) == -1 && end.Cmp(&newId) >= 0 {
+			ret = true
+		} else {
+			ret = false
+		}
+	} else {
+		if start.Cmp(&newId) == -1 || end.Cmp(&newId) >=0 {
+			ret = true
+		} else {
+			ret = false
+		}
+	}
+	if !ret {
+		str := fmt.Sprintf("Start : %s, End : %s, newId : %s\n", start.String(), end.String(), newId.String())
+		return ret, str
+	} else {
+		return ret, ""
+	}
+}
+
+func BetweenNodes(start, end, newId big.Int) (bool, string) {
+	var ret bool
+
+	startEndCmp := start.Cmp(&end)
+
+	if startEndCmp == -1 {
+		if start.Cmp(&newId) == -1 && end.Cmp(&newId) == 1 {
+			ret = true
+		} else {
+			ret = false
+		}
+	} else {
+		if start.Cmp(&newId) == -1 || end.Cmp(&newId) == 1 {
+			ret = true
+		} else {
+			ret = false
+		}
+	}
+	if !ret {
+		str := fmt.Sprintf("Start : %s, End : %s, newId : %s\n", start.String(), end.String(), newId.String())
+		return ret, str
+	} else {
+		return ret, ""
+	}
+}
+
+
+
+/*
+func InKeySpace(currId, newId, prevId big.Int) bool {
+	cmp := currId.Cmp(&newId)
 	if cmp == 0 {
 		return true
 	}
-	prevCmp := currId.Cmp(prevId)
 
-	idPrevCmp := prevId.Cmp(newId)
+	prevCmp := currId.Cmp(&prevId)
+
+	idPrevCmp := prevId.Cmp(&newId)
 
 	if prevCmp == -1 {
 		if (cmp == -1 && idPrevCmp == -1) || (cmp == 1 && idPrevCmp == 1) {
@@ -36,13 +92,38 @@ func InKeySpace(currId, newId, prevId *big.Int) bool {
 		}
 	}
 }
-func ConvertKey(key string) *big.Int {
+*/
+func NoInclude(currId, newId, prevId big.Int) bool {
+	cmp := currId.Cmp(&newId)
+
+	prevCmp := currId.Cmp(&prevId)
+
+	idPrevCmp := prevId.Cmp(&newId)
+
+	if prevCmp == -1 {
+		if (cmp == -1 && idPrevCmp == -1) || (cmp == 1 && idPrevCmp == 1) {
+			return true
+		} else {
+			return false
+		}
+	} else {
+		if cmp == 1 && idPrevCmp == -1 {
+			return true
+		} else {
+			return false
+		}
+	}
+
+}
+
+func ConvertKey(key string) big.Int {
 	h := sha1.New()
 	io.WriteString(h, key)
 
 	ret := new(big.Int)
 
-	return ret.SetBytes(h.Sum(nil))
+	ret.SetBytes(h.Sum(nil))
+	return *ret
 }
 
 func GetNode(list []string, curNode string) string {
@@ -73,7 +154,7 @@ func CheckInterrupt() {
 	}
 }
 
-func RpcArgs(key *big.Int, value string) shared.Args {
+func RpcArgs(key big.Int, value string) shared.Args {
 	args := shared.Args {
 		Key: key,
 		Value: value }
@@ -82,7 +163,7 @@ func RpcArgs(key *big.Int, value string) shared.Args {
 }
 
 
-func CreateArgs(nodeAddr string, nodeId *big.Int) shared.Args {
+func CreateArgs(nodeAddr string, nodeId big.Int) shared.Args {
 	n := shared.NodeInfo{
 		Ip: nodeAddr,
 		Id: nodeId }
@@ -93,7 +174,7 @@ func CreateArgs(nodeAddr string, nodeId *big.Int) shared.Args {
 	return args
 }
 
-func UpdateArgs(id *big.Int, prevId string) shared.UpdateArgs {
+func UpdateArgs(id big.Int, prevId string) shared.UpdateArgs {
 	args := shared.UpdateArgs {
 		Id: id,
 		PrevId: prevId }
