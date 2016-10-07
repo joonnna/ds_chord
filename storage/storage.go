@@ -6,8 +6,7 @@ import (
 //	"strings"
 	"github.com/joonnna/ds_chord/chord"
 	"github.com/joonnna/ds_chord/logger"
-//	"errors"
-	"sync"
+//	"errors
 	"net"
 	"net/http"
 	"io/ioutil"
@@ -18,7 +17,6 @@ import (
 
 type Storage struct {
 	chord *chord.Chord
-	mutex sync.RWMutex
 	log *logger.Logger
 }
 
@@ -37,9 +35,6 @@ func (s *Storage) splitStorage(newId string, prevId string) map[string]string {
 */
 
 func (s *Storage) putHandler(w http.ResponseWriter, r *http.Request) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	key := util.GetKey(r)
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -69,9 +64,6 @@ func (s *Storage) putHandler(w http.ResponseWriter, r *http.Request) {
 
 
 func (s *Storage) getHandler(w http.ResponseWriter, r *http.Request) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	key := util.GetKey(r)
 
 	successor, err := s.chord.FindSuccessor(key)

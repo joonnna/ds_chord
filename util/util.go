@@ -1,6 +1,8 @@
 package util
 
 import (
+	"encoding/json"
+	"time"
 	"math/big"
 //	"strings"
 	"fmt"
@@ -13,126 +15,67 @@ import (
 	"github.com/joonnna/ds_chord/node_communication"
 )
 /* With  Upper Inlcude */
-func InKeySpace(start, end, newId big.Int) (bool, string) {
-	var ret bool
-
+func InKeySpace(start, end, newId big.Int) bool {
 	startEndCmp := start.Cmp(&end)
 
 	if startEndCmp == -1 {
 		if start.Cmp(&newId) == -1 && end.Cmp(&newId) >= 0 {
-			ret = true
+			return true
 		} else {
-			ret = false
+			return false
 		}
 	} else {
 		if start.Cmp(&newId) == -1 || end.Cmp(&newId) >=0 {
-			ret = true
+			return true
 		} else {
-			ret = false
+			return false
 		}
-	}
-	if !ret {
-		str := fmt.Sprintf("Start : %s, End : %s, newId : %s\n", start.String(), end.String(), newId.String())
-		return ret, str
-	} else {
-		return ret, ""
 	}
 }
 
-func BetweenNodes(start, end, newId big.Int) (bool, string) {
-	var ret bool
-
+/* Without include */
+func BetweenNodes(start, end, newId big.Int) bool {
 	startEndCmp := start.Cmp(&end)
 
 	if startEndCmp == -1 {
 		if start.Cmp(&newId) == -1 && end.Cmp(&newId) == 1 {
-			ret = true
+			return true
 		} else {
-			ret = false
+			return false
 		}
 	} else {
 		if start.Cmp(&newId) == -1 || end.Cmp(&newId) == 1 {
-			ret = true
-		} else {
-			ret = false
-		}
-	}
-	if !ret {
-		str := fmt.Sprintf("Start : %s, End : %s, newId : %s\n", start.String(), end.String(), newId.String())
-		return ret, str
-	} else {
-		return ret, ""
-	}
-}
-
-
-
-/*
-func InKeySpace(currId, newId, prevId big.Int) bool {
-	cmp := currId.Cmp(&newId)
-	if cmp == 0 {
-		return true
-	}
-
-	prevCmp := currId.Cmp(&prevId)
-
-	idPrevCmp := prevId.Cmp(&newId)
-
-	if prevCmp == -1 {
-		if (cmp == -1 && idPrevCmp == -1) || (cmp == 1 && idPrevCmp == 1) {
-			return true
-		} else {
-			return false
-		}
-	} else {
-		if cmp == 1 && idPrevCmp == -1 {
 			return true
 		} else {
 			return false
 		}
 	}
 }
-*/
-func NoInclude(currId, newId, prevId big.Int) bool {
-	cmp := currId.Cmp(&newId)
 
-	prevCmp := currId.Cmp(&prevId)
-
-	idPrevCmp := prevId.Cmp(&newId)
-
-	if prevCmp == -1 {
-		if (cmp == -1 && idPrevCmp == -1) || (cmp == 1 && idPrevCmp == 1) {
-			return true
-		} else {
-			return false
-		}
-	} else {
-		if cmp == 1 && idPrevCmp == -1 {
-			return true
-		} else {
-			return false
-		}
-	}
-
-}
-
-func ConvertKey(key string) big.Int {
+func ConvertKey(key string) []byte {
 	h := sha1.New()
 	io.WriteString(h, key)
 
-	ret := new(big.Int)
+	return h.Sum(nil)
+}
 
-	ret.SetBytes(h.Sum(nil))
+func ConvertToBigInt(bytes []byte) big.Int {
+	ret := new(big.Int)
+	ret.SetBytes(bytes)
 	return *ret
 }
 
-func GetNode(list []string, curNode string) string {
+func GetNode(curNode string, nameServer string) (string, error) {
+	list, err := GetNodeList(nameServer)
+	if err != nil {
+		return "", err
+	}
 	for _, ip := range list {
 		if ip != curNode {
-			return ip
+			return ip, nil
 		}
 	}
-	return ""
+	return "", nil
 }
 
 
@@ -154,6 +97,30 @@ func CheckInterrupt() {
 	}
 }
 
+func GetNodeList(nameServer string) ([]string, error)  {
+	var nodeIps []string
+
+	timeout := time.Duration(5 * time.Second)
+	client := &http.Client{Timeout : timeout}
+
+	r, err := client.Get(nameServer)
+	if err != nil {
+		return nil, err
+	}
+
+	defer r.Body.Close()
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(body, &nodeIps)
+	if err != nil {
+		return nil, err
+	}
+	return nodeIps, nil
+}
 func RpcArgs(key big.Int, value string) shared.Args {
 	args := shared.Args {
 		Key: key,

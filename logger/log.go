@@ -18,6 +18,8 @@ var (
 	err = "ERROR"
 	info = "INFO"
 	debug = "DEBUG"
+	testing = "TESTING"
+	lightBlue = "\x1b[36m"
 	yellow = "\x1b[33m"
 	green = "\x1b[32m"
 	red = "\x1b[31m"
@@ -45,11 +47,15 @@ func (l *Logger) Error(msg string) {
 }
 
 func (l *Logger) Info(msg string) {
-	l.log.Println(l.formatString(info, msg, green))
+//	l.log.Println(l.formatString(info, msg, green))
 }
 
 func (l *Logger) Debug(msg string) {
-	l.log.Println(l.formatString(debug, msg, yellow))
+//	l.log.Println(l.formatString(debug, msg, yellow))
+}
+
+func (l *Logger) Testing(msg string) {
+	l.log.Println(l.formatString(testing, msg, lightBlue))
 }
 
 

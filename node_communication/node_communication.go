@@ -58,8 +58,7 @@ func dialNode(address string) (*rpc.Client, error) {
 	return rpc.NewClient(connection), nil
 }
 
-func SingleCall(method string, address string, args interface{}, reply interface{})  error {
-	//var reply interface{}
+func SingleCall(method string, address string, args interface{}, reply interface{}) error {
 	c, err := setupConn(address)
 	if err != nil {
 		return err
@@ -70,7 +69,10 @@ func SingleCall(method string, address string, args interface{}, reply interface
 		return err
 	}
 
-	c.Client.Close()
+	err = c.Client.Close()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

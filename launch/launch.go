@@ -15,11 +15,12 @@ import (
 	"math/rand"
 )
 var (
-	http = (rand.Int() % 8000) + 4200
-	rpc = (rand.Int() % 8000) + 4200
+	http = (rand.Int() % 8000) + 1100
+	rpc = (rand.Int() % 8000) + 3180
 )
 func cleanUp(pipeSlice []io.WriteCloser) {
 	fmt.Println("CLEANUP")
+
 	for _, pipe := range pipeSlice {
 		pipe.Write([]byte("kill"))
 		pipe.Close()
@@ -94,21 +95,15 @@ func main () {
 	time.Sleep(3 * time.Second)
 
 	for idx, ip := range nodeList {
-		if idx != 0 {
-			/*if idx == 3 {
-				pipe = launch(ip, path, nameServerIp, 1)
-			} else {
-			*/
+		if idx == len(nodeList) - 1  {
+			time.Sleep((30 * time.Second))
+			pipe = launch(ip, path, nameServerIp, -1)
+		} else if idx != 0 {
 		 	pipe = launch(ip, path, nameServerIp, idx+2)
-			//}
 		}
-
 		pipeSlice = append(pipeSlice, pipe)
 	}
 
-				//else if idx == len(nodeList) - 1 {
-				//time.Sleep((10 * time.Second))
-				//pipe = launch(ip, path, nameServerIp, -1)
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c

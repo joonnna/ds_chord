@@ -1,8 +1,8 @@
 package node
 
 import (
-	"io/ioutil"
-	"encoding/json"
+//	"io/ioutil"
+//	"encoding/json"
 	"net/http"
 	"time"
 	"strings"
@@ -37,7 +37,7 @@ func (n *Node) assertPreDecessor(newPre *big.Int) {
 }
 */
 func (n *Node) putIp() {
-	req, err := http.NewRequest("PUT", n.NameServer+"/", strings.NewReader(n.ip))
+	req, err := http.NewRequest("PUT", n.NameServer+"/", strings.NewReader(n.Ip))
 	if err != nil {
 		n.logger.Error(err.Error())
 	}
@@ -53,27 +53,3 @@ func (n *Node) putIp() {
 
 }
 
-func GetNodeList(nameServer string) ([]string, error)  {
-	var nodeIps []string
-
-	timeout := time.Duration(5 * time.Second)
-	client := &http.Client{Timeout : timeout}
-
-	r, err := client.Get(nameServer)
-	if err != nil {
-		return nil, err
-	}
-
-	defer r.Body.Close()
-
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(body, &nodeIps)
-	if err != nil {
-		return nil, err
-	}
-	return nodeIps, nil
-}

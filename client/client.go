@@ -1,9 +1,10 @@
 package client
 
 import (
-	//"time"
+	"time"
 	//"runtime"
-	//"sync"
+	"fmt"
+	"sync"
 	"os"
 	"net/http"
 	"encoding/json"
@@ -21,14 +22,22 @@ type Client struct {
 	nodeIps []string
 	log *logger.Logger
 	port string
+	client *http.Client
 }
 
+type result struct {
+	errors int
+	meanLatency float64
+}
 
-func (c *Client) genKeyValue() (string, string){
-	randKey := strconv.Itoa(rand.Int())
+const (
+	numWorkers = 100
+)
+
+func genValue() string {
 	randValue := strconv.Itoa(rand.Int())
 
-	return randKey, randValue
+	return randValue
 }
 
 func (c *Client) getNodeList()  {
@@ -46,6 +55,7 @@ func (c *Client) getNodeList()  {
 	if err != nil {
 		c.log.Error(err.Error())
 	}
+	r.Body.Close()
 }
 
 func (c *Client) getValue(ip string, key string) string {
@@ -54,10 +64,7 @@ func (c *Client) getValue(ip string, key string) string {
 		c.log.Error(err.Error())
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	defer resp.Body.Close()
-
+	resp, err := c.client.Do(req)
 	if err != nil {
 		c.log.Error(err.Error())
 		return ""
@@ -66,7 +73,7 @@ func (c *Client) getValue(ip string, key string) string {
 		if err != nil {
 			c.log.Error(err.Error())
 		}
-		//fmt.Println(string(body))
+		resp.Body.Close()
 		return string(body)
 	}
 }
@@ -78,33 +85,40 @@ func (c *Client) putValue(ip string, key string, value string) {
 		c.log.Error(err.Error())
 	}
 
-	client := &http.Client{}
-
-	resp, err := client.Do(req)
-	defer resp.Body.Close()
+	resp, err := c.client.Do(req)
 	if err != nil {
 		c.log.Error(err.Error())
+	} else {
+		resp.Body.Close()
 	}
 }
 
 
-func (c *Client) assertKeys() int {
+func (c *Client) assertKeys(start int, wg *sync.WaitGroup, ch chan result)  {
+	defer wg.Done()
 	errors := 0
-	numKeys := 1000
+	numKeys := 100
+	var totalLatency float64
+	totalLatency = 0.00
 
 	for i := 0; i < numKeys; i++ {
+		key := strconv.Itoa(start + i)
+		value := genValue()
 
-		key, value := c.genKeyValue()
+		idx := rand.Int() % len(c.nodeIps)
 
-		c.putValue(c.nodeIps[0], key, value)
+		start := time.Now()
+		c.putValue(c.nodeIps[idx], key, value)
+		totalLatency += float64((time.Since(start)*time.Second))
 
+
+		start = time.Now()
 		getVal := c.getValue(c.nodeIps[0], key)
+		totalLatency += float64((time.Since(start)*time.Second))
 
 		c.log.Debug(getVal)
 		tmp := strings.Split(getVal, "\"")
-		if len(tmp) < 1 {
-			c.log.Error("Failed to PUT/GET value " + value)
-
+		if len(tmp) <= 1 {
 			errors += 1
 			continue
 		}
@@ -112,28 +126,57 @@ func (c *Client) assertKeys() int {
 		//c.log.Debug("NEW VAL : " + tmp)
 
 		if !(value == getVal) {
-			c.log.Error("Failed to PUT/GET key " + key)
 			errors += 1
 		}
 	}
-	return errors
+
+	mean := (totalLatency/float64(numKeys*2))
+	retVal := result {
+		errors: errors,
+		meanLatency: mean }
+	ch <- retVal
 }
 
 func Run(nameServer string, port string) {
 	go util.CheckInterrupt()
 
-	c := new(Client)
-	c.nameServer = "http://" + nameServer + port
-	c.port = port
+	numErrors := 0
+	var meanLatency float64
+	meanLatency = 0.00
+
+	var wg sync.WaitGroup
+
+	ch := make(chan result, numWorkers)
+
 	l := new(logger.Logger)
 	l.Init((os.Stdout), "Client", 0)
-	c.log = l
-	c.log.Debug(port)
-	c.log.Info("Started Client")
-	c.log.Debug(c.nameServer)
+
+	c := &Client{
+		nameServer: "http://" + nameServer + port,
+		port: port,
+		log: l,
+		client: &http.Client{} }
 
 	c.getNodeList()
-	numErrors := c.assertKeys()
-	c.log.Error("Number of PUT/GET errors " + strconv.Itoa(numErrors))
+
+	c.log.Testing("STARTED TESTING BOOOOYS")
+	for i := 0; i < numWorkers; i++ {
+		go c.assertKeys((i*numWorkers), &wg, ch)
+		wg.Add(1)
+	}
+
+
+	for i := 0; i < numWorkers; i++ {
+		res := <-ch
+		numErrors += res.errors
+		meanLatency += res.meanLatency
+	}
+
+
+	meanLatency = (meanLatency/numWorkers)
+
+	str := fmt.Sprint(meanLatency)
+	c.log.Testing("Number of PUT/GET errors " + strconv.Itoa(numErrors))
+	c.log.Testing("Mean Latency(s) : " + str)
 }
 

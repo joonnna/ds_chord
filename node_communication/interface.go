@@ -9,9 +9,10 @@ type NodeInfo struct {
 	Id big.Int
 }
 
-type Test struct {
+type Search struct {
 	Ip string
 	Id []byte
+	Value string
 }
 
 type Reply struct {
@@ -37,14 +38,11 @@ type UpdateArgs struct {
 
 
 type RPC interface {
-	FindSuccessor(args Test, reply *Reply) error
-//	UpdateSuccessor(args Args, reply *Reply) error
-//	UpdatePreDecessor(args Args, reply *Reply) error
-	Notify(args Test, reply *Reply) error
-	ClosestPrecedingFinger(args Test, reply *Reply) error
-	PutKey(args Args, reply *Reply) error
-	GetKey(args Args, reply *Reply) error
-	GetPreDecessor(args int, reply *Test) error
-	GetSuccessor(args int, reply *Test) error
-	//	SplitKeys(args UpdateArgs, reply *UpdateReply) error
+	FindSuccessor(args Search, reply *Reply) error
+	Notify(args Search, reply *Reply) error
+	ClosestPrecedingFinger(args Search, reply *Reply) error
+	PutKey(args Search, reply *Reply) error
+	GetKey(args Search, reply *Reply) error
+	GetPreDecessor(args int, reply *Search) error
+	GetSuccessor(args int, reply *Search) error
 }
