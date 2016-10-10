@@ -2,7 +2,7 @@ package client
 
 import (
 	"time"
-	//"runtime"
+	"runtime"
 	"fmt"
 	"sync"
 	"os"
@@ -13,13 +13,14 @@ import (
 	"math/rand"
 	"strconv"
 	"github.com/joonnna/ds_chord/logger"
-	"github.com/joonnna/ds_chord/util"
+	"log"
 )
 
 
 type Client struct {
 	nameServer string
 	nodeIps []string
+	keys []string
 	log *logger.Logger
 	port string
 	client *http.Client
@@ -30,8 +31,8 @@ type result struct {
 	meanLatency float64
 }
 
-const (
-	numWorkers = 100
+var (
+	numReq = 10000
 )
 
 func genValue() string {
@@ -59,11 +60,11 @@ func (c *Client) getNodeList()  {
 }
 
 func (c *Client) getValue(ip string, key string) string {
-	req, err := http.NewRequest("GET", "http://" + ip + c.port  + "/" + key, nil)
+	req, err := http.NewRequest("GET", "http://" + ip + "/" + key, nil)
 	if err != nil {
 		c.log.Error(err.Error())
 	}
-
+	req.Close = true
 	resp, err := c.client.Do(req)
 	if err != nil {
 		c.log.Error(err.Error())
@@ -80,11 +81,11 @@ func (c *Client) getValue(ip string, key string) string {
 
 
 func (c *Client) putValue(ip string, key string, value string) {
-	req, err := http.NewRequest("PUT", "http://" + ip + c.port + "/" + key, strings.NewReader(value))
+	req, err := http.NewRequest("PUT", "http://" + ip + "/" + key, strings.NewReader(value))
 	if err != nil {
 		c.log.Error(err.Error())
 	}
-
+	req.Close = true
 	resp, err := c.client.Do(req)
 	if err != nil {
 		c.log.Error(err.Error())
@@ -94,59 +95,69 @@ func (c *Client) putValue(ip string, key string, value string) {
 }
 
 
-func (c *Client) assertKeys(start int, wg *sync.WaitGroup, ch chan result)  {
-	defer wg.Done()
-	errors := 0
-	numKeys := 100
-	var totalLatency float64
-	totalLatency = 0.00
+func (c *Client) assertKeys(numKeys int, start int, wg *sync.WaitGroup, ch chan result)  {
+	wg.Done()
+	wg.Wait()
+	var errors int = 0
+	var totalLatency float64 = 0.00
 
 	for i := 0; i < numKeys; i++ {
-		key := strconv.Itoa(start + i)
+		key := c.keys[start*numKeys + i]
 		value := genValue()
 
 		idx := rand.Int() % len(c.nodeIps)
 
 		start := time.Now()
 		c.putValue(c.nodeIps[idx], key, value)
-		totalLatency += float64((time.Since(start)*time.Second))
-
+		totalLatency += (time.Since(start).Seconds())
 
 		start = time.Now()
 		getVal := c.getValue(c.nodeIps[0], key)
-		totalLatency += float64((time.Since(start)*time.Second))
+		totalLatency += float64(time.Since(start).Seconds())
 
-		c.log.Debug(getVal)
 		tmp := strings.Split(getVal, "\"")
-		if len(tmp) <= 1 {
+		if len(tmp) < 1 {
+			c.log.Error("Failed to PUT/GET value " + value)
 			errors += 1
 			continue
 		}
 		getVal = tmp[1]
-		//c.log.Debug("NEW VAL : " + tmp)
 
 		if !(value == getVal) {
+			c.log.Error("Failed to PUT/GET key " + key)
 			errors += 1
 		}
 	}
-
 	mean := (totalLatency/float64(numKeys*2))
 	retVal := result {
-		errors: errors,
-		meanLatency: mean }
+		meanLatency: mean,
+		errors: errors }
 	ch <- retVal
 }
 
+
+func logResult(d1 string, d2 string, d3 string, d4 string) {
+	f, err := os.OpenFile("./result.txt", os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer f.Close()
+
+	str := fmt.Sprintf("%s\t%s\t%s\t%s\n", d1, d2, d3, d4)
+
+	_, err = f.WriteString(str)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}
+
 func Run(nameServer string, port string) {
-	go util.CheckInterrupt()
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	numErrors := 0
-	var meanLatency float64
-	meanLatency = 0.00
-
-	var wg sync.WaitGroup
-
-	ch := make(chan result, numWorkers)
+	var meanLatency float64 = 0.00
 
 	l := new(logger.Logger)
 	l.Init((os.Stdout), "Client", 0)
@@ -157,26 +168,49 @@ func Run(nameServer string, port string) {
 		log: l,
 		client: &http.Client{} }
 
-	c.getNodeList()
-
-	c.log.Testing("STARTED TESTING BOOOOYS")
-	for i := 0; i < numWorkers; i++ {
-		go c.assertKeys((i*numWorkers), &wg, ch)
-		wg.Add(1)
+	totalKeys := numReq/2
+	for i := 0; i < totalKeys; i++ {
+		c.keys = append(c.keys, strconv.Itoa(rand.Int()))
 	}
 
+	c.log.Testing("STARTED TESTING")
 
+	var wg sync.WaitGroup
+	numWorkers := 300
+	numKeys := totalKeys/numWorkers
+
+	ch := make(chan result, numWorkers)
+	info := fmt.Sprintf("Workers : %s", strconv.Itoa(numWorkers))
+	c.log.Testing(info)
+
+	c.getNodeList()
+	for k := 0; k < numWorkers; k++ {
+		wg.Add(1)
+		go c.assertKeys(numKeys, k, &wg, ch)
+	}
+	wg.Wait()
+
+	start := time.Now()
 	for i := 0; i < numWorkers; i++ {
 		res := <-ch
 		numErrors += res.errors
 		meanLatency += res.meanLatency
 	}
+	end := time.Since(start)
 
+	reqPerSec := (float64(numReq))/(float64(end.Seconds()))
 
-	meanLatency = (meanLatency/numWorkers)
+	meanLatency = (meanLatency/float64(numWorkers))
 
 	str := fmt.Sprint(meanLatency)
-	c.log.Testing("Number of PUT/GET errors " + strconv.Itoa(numErrors))
+	tmp := fmt.Sprint(reqPerSec)
+	total := fmt.Sprint(end.Seconds())
+
+	c.log.Testing("Total Time : " + total)
 	c.log.Testing("Mean Latency(s) : " + str)
+	c.log.Testing("Request per second(s) : " + tmp)
+
+	c.log.Testing("ERRORS : " + strconv.Itoa(numErrors))
+	//logResult(tmp, str, strconv.Itoa(numWorkers), "16")
 }
 

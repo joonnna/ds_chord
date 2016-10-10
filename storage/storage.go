@@ -1,39 +1,27 @@
 package storage
 
 import (
-//	"github.com/joonnna/ds_chord/logger"
 	"github.com/joonnna/ds_chord/util"
-//	"strings"
 	"github.com/joonnna/ds_chord/chord"
 	"github.com/joonnna/ds_chord/logger"
-//	"errors
+	"runtime"
 	"net"
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
 	"os"
 	"github.com/gorilla/mux"
+	"time"
 )
+
 
 type Storage struct {
 	chord *chord.Chord
 	log *logger.Logger
 }
 
-/*
-func (s *Storage) splitStorage(newId string, prevId string) map[string]string {
-	ret := make(map[string]string)
-
-	for key, val := range d.store {
-		if util.InKeySpace(newId, key, prevId) {
-			ret[key] = val
-			delete(d.store, key)
-		}
-	}
-	return ret
-}
-*/
-
+/* Handles put requests
+   Finds and stores the given key/value on the appropriate node. */
 func (s *Storage) putHandler(w http.ResponseWriter, r *http.Request) {
 	key := util.GetKey(r)
 
@@ -63,6 +51,8 @@ func (s *Storage) putHandler(w http.ResponseWriter, r *http.Request) {
 
 
 
+/* Handles put requests
+   Finds and retrieves the given key on the appropriate node. */
 func (s *Storage) getHandler(w http.ResponseWriter, r *http.Request) {
 	key := util.GetKey(r)
 
@@ -87,7 +77,7 @@ func (s *Storage) getHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
+/* Responsible for handling http requests*/
 func (s *Storage) httpHandler(port string) {
 	r := mux.NewRouter()
 	r.HandleFunc("/{key}", s.getHandler).Methods("GET")
@@ -106,9 +96,11 @@ func (s *Storage) httpHandler(port string) {
 		os.Exit(1)
 	}
 }
-
+/* Inits and runs the chord implementation, responsible for handling requests*/
 func Run(nameServer, httpPort, rpcPort string) {
-	go util.CheckInterrupt()
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	http.DefaultTransport.(*http.Transport).IdleConnTimeout = time.Second * 1
+	http.DefaultTransport.(*http.Transport).MaxIdleConns = 10000
 
 	l := new(logger.Logger)
 	l.Init((os.Stdout), "Storage", 0)

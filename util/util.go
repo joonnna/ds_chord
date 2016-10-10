@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"time"
 	"math/big"
-//	"strings"
 	"fmt"
 	"os"
 	"io"
@@ -141,10 +140,3 @@ func CreateArgs(nodeAddr string, nodeId big.Int) shared.Args {
 	return args
 }
 
-func UpdateArgs(id big.Int, prevId string) shared.UpdateArgs {
-	args := shared.UpdateArgs {
-		Id: id,
-		PrevId: prevId }
-
-	return args
-}

@@ -1,9 +1,7 @@
 package node
 
 import (
-	//"github.com/joonnna/ds_chord/logger"
 	"github.com/joonnna/ds_chord/node_communication"
-//	"github.com/joonnna/ds_chord/storage"
 	"github.com/joonnna/ds_chord/util"
 	"errors"
 	"math/big"
@@ -15,41 +13,49 @@ var (
 
 )
 
-
-func (n *Node) PutKey(args shared.Test, reply *shared.Reply) error {
+/* Rpc function to store a given key/value pair on a node
+	args: contains the key and value
+	reply: populated with return arguments, none in this case
+*/
+func (n *Node) PutKey(args shared.Search, reply *shared.Reply) error {
 	key := util.ConvertToBigInt(args.Id)
-	n.logger.Debug("PUT key : " + key.String())
 
 	n.update.Lock()
 	defer n.update.Unlock()
+
 	if util.InKeySpace(n.prev.Id, n.id, key){
 		n.data[key.String()] = args.Value
 		return nil
 	} else {
-		n.logger.Error("PUT Wrong node " + key.String())
-		n.logger.Error("Succ : " + n.table.fingers[1].node.Id.String())
-		n.logger.Error("Self : " + n.id.String())
 		return ErrPut
 	}
 }
 
-func (n *Node) GetKey(args shared.Test, reply *shared.Reply) error {
+/* Rpc function to retrieve the value of a given key on a node
+	args: contains the key
+	reply: populated with return arguments, none in this case
+*/
+func (n *Node) GetKey(args shared.Search, reply *shared.Reply) error {
 	key := util.ConvertToBigInt(args.Id)
-	n.logger.Debug("Get key : " + key.String())
 
 	n.update.RLock()
 	defer n.update.RUnlock()
+
 	if util.InKeySpace(n.prev.Id, n.id, key){
 		reply.Value = n.data[key.String()]
 		return nil
 	} else {
-		n.logger.Error("GET Wrong node " + key.String())
 		return ErrGet
 	}
 }
 
 
-func (n *Node) FindSuccessor(args shared.Test, reply *shared.Reply) error {
+/* Rpc function to find the successor of the given id.
+   Also finds the predecessor of the given id.
+   args: contains the search id
+   reply: populated with successor and predecessor information
+*/
+func (n *Node) FindSuccessor(args shared.Search, reply *shared.Reply) error {
 	tmp := new(big.Int)
 	tmp.SetBytes(args.Id)
 	test := shared.NodeInfo {
@@ -80,7 +86,12 @@ func (n *Node) FindSuccessor(args shared.Test, reply *shared.Reply) error {
 }
 
 
-func (n *Node) ClosestPrecedingFinger(args shared.Test, reply *shared.Reply) error{
+/* Rpc function to find the closest preceding finger in the fingertable for the given id.
+   Finds node in the fingertable entry which is in the keyspace between itself and the given id.
+   reply: populated with the closest preceding finger.
+   args: contains the search id
+*/
+func (n *Node) ClosestPrecedingFinger(args shared.Search, reply *shared.Reply) error{
 	cmpId := new(big.Int)
 	cmpId.SetBytes(args.Id)
 	for i := (lenOfId-1); i >= 1; i-- {
@@ -96,33 +107,33 @@ func (n *Node) ClosestPrecedingFinger(args shared.Test, reply *shared.Reply) err
 
 	return nil
 }
-func (n *Node) GetPreDecessor(args int, reply *shared.Test) error {
+
+/* Populates the reply with the nodes predecessor */
+func (n *Node) GetPreDecessor(args int, reply *shared.Search) error {
 	id := n.prev.Id.Bytes()
 	reply.Id = id
 	reply.Ip = n.prev.Ip
 	return nil
 }
 
-func (n *Node) GetSuccessor(args int, reply *shared.Test) error {
+/* Populates the reply with the nodes successor */
+func (n *Node) GetSuccessor(args int, reply *shared.Search) error {
 	id := n.table.fingers[1].node.Id.Bytes()
 	reply.Id = id
 	reply.Ip = n.table.fingers[1].node.Ip
 	return nil
 }
-
-func (n *Node) Notify(args shared.Test, reply *shared.Reply) error {
+/* Checks if the given node id is the new predecessor */
+func (n *Node) Notify(args shared.Search, reply *shared.Reply) error {
 	tmp := new(big.Int)
 	tmp.SetBytes(args.Id)
-	//n.logger.Info("RECEIVED NOTIFY")
 
 	node := shared.NodeInfo {
 		Id: *tmp,
 		Ip: args.Ip	}
 
 	if n.prev.Ip == n.Ip || util.BetweenNodes(n.prev.Id, n.id, *tmp) {
-	//	n.logger.Info("UPDATING PRE")
 		n.prev = node
-		n.logger.Info(n.prev.Ip)
 	}
 
 	if n.table.fingers[1].node.Ip == n.Ip {

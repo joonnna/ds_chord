@@ -2,7 +2,6 @@ package node
 
 import (
 	"encoding/json"
-	//"math/big"
 	"time"
 	"bytes"
 	"net/http"
@@ -16,6 +15,7 @@ type state struct {
 }
 
 
+/* Periodically sends the nodes current state to the state server*/
 func (n *Node) updateState() {
 
 	client := &http.Client{}
@@ -26,7 +26,7 @@ func (n *Node) updateState() {
 	}
 
 }
-
+/* Creates a new state */
 func (n *Node) newState() io.Reader {
 	s := state {
 		Next: n.table.fingers[1].node.Ip,
@@ -42,7 +42,7 @@ func (n *Node) newState() io.Reader {
 
 	return bytes.NewReader(buff.Bytes())
 }
-
+/* Sends the node state to the state server*/
 func (n *Node) updateReq(r io.Reader, c *http.Client) {
 	req, err := http.NewRequest("POST", "http://129.242.22.74:8080/update", r)
 	if err != nil {
@@ -57,7 +57,7 @@ func (n *Node) updateReq(r io.Reader, c *http.Client) {
 	}
 }
 
-
+/* Sends a post request to the state server add endpoint */
 func (n *Node) add() {
 	r := n.newState()
 	req, err := http.NewRequest("POST", "http://129.242.22.74:8080/add", r)

@@ -47,11 +47,11 @@ func (l *Logger) Error(msg string) {
 }
 
 func (l *Logger) Info(msg string) {
-//	l.log.Println(l.formatString(info, msg, green))
+	l.log.Println(l.formatString(info, msg, green))
 }
 
 func (l *Logger) Debug(msg string) {
-//	l.log.Println(l.formatString(debug, msg, yellow))
+	l.log.Println(l.formatString(debug, msg, yellow))
 }
 
 func (l *Logger) Testing(msg string) {

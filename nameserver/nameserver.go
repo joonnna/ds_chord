@@ -2,7 +2,6 @@ package nameserver
 
 import (
 	"github.com/joonnna/ds_chord/logger"
-	"github.com/joonnna/ds_chord/util"
 	"strings"
 	"os"
 	"net/http"
@@ -26,7 +25,7 @@ var (
 	ErrRead = errors.New("Unable to read body")
 )
 
-
+/* Inits the nameserver */
 func (n *nameServer) Init(ip string, port string) {
 	l := new(logger.Logger)
 	l.Init((os.Stdout), "Nameserver", 0)
@@ -37,6 +36,7 @@ func (n *nameServer) Init(ip string, port string) {
 }
 
 
+/* Http handler */
 func (n *nameServer) httpServer() {
 	r := mux.NewRouter()
 
@@ -48,10 +48,8 @@ func (n *nameServer) httpServer() {
 	http.ListenAndServe(n.port, r)
 }
 
-
-
+/* Handles get requests */
 func (n *nameServer) getHandler(w http.ResponseWriter, r *http.Request) {
-	n.logger.Info("Received get in nameserver")
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
@@ -62,8 +60,9 @@ func (n *nameServer) getHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+
+/* Handles put requests */
 func (n *nameServer) putHandler(w http.ResponseWriter, r *http.Request) {
-	n.logger.Info("Received put in nameserver")
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -75,9 +74,10 @@ func (n *nameServer) putHandler(w http.ResponseWriter, r *http.Request) {
 	n.nodeIps = append(n.nodeIps, string(newIp))
 }
 
+/* Runs the nameserver
+   port: the port to listen on.
+*/
 func Run(port string) {
-	go util.CheckInterrupt()
-
 	hostName, _ := os.Hostname()
 	hostName = strings.Split(hostName, ".")[0]
 

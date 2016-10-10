@@ -1,9 +1,6 @@
 package node
 
 import (
-	//"fmt"
-//	"crypto/sha1"
-//	"time"
 	"net"
 	"strings"
 	"os"
@@ -15,13 +12,14 @@ import (
 	"net/http"
 	"time"
 )
-
+/* Node defenition */
 type Node struct {
 	data map[string]string
 	Ip string
 	id big.Int
 	NameServer string
 	RpcPort string
+	httpPort string
 	logger *logger.Logger
 
 	listener net.Listener
@@ -32,7 +30,13 @@ type Node struct {
 
 	update sync.RWMutex
 }
+/* Inits and returns the node object
+   nameserver: Ip address of the nameserver
+   httpPort: Port for http communication
+   rpcPort: Port for rpc communication
 
+   Returns node object
+*/
 func InitNode(nameServer, httpPort, rpcPort string) *Node {
 	hostName, _ := os.Hostname()
 	hostName = strings.Split(hostName, ".")[0]
@@ -50,6 +54,7 @@ func InitNode(nameServer, httpPort, rpcPort string) *Node {
 		Ip: hostName,
 		logger: log,
 		NameServer: "http://" + nameServer + httpPort,
+		httpPort: httpPort,
 		RpcPort: rpcPort,
 		data: make(map[string]string) }
 
@@ -62,18 +67,18 @@ func InitNode(nameServer, httpPort, rpcPort string) *Node {
 
 	n.listener = l
 
-	n.logger.Info("Started node")
-
 	n.initFingerTable()
 	return n
 }
-
+/* Joins the network and calls stabilize and fix fingers periodically.
+	node: the node to run
+*/
 func Run(n *Node) {
 	defer n.listener.Close()
 
 	n.join()
-	n.add()
-	go n.updateState()
+//	n.add()
+//	go n.updateState()
 
 	go n.fixFingers()
 	for {

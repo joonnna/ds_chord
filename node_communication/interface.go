@@ -27,16 +27,8 @@ type Args struct {
 	Value string
 }
 
-type UpdateReply struct {
-	Values map[string]string
-}
 
-type UpdateArgs struct {
-	Id big.Int
-	PrevId string
-}
-
-
+/* All rpc functions */
 type RPC interface {
 	FindSuccessor(args Search, reply *Reply) error
 	Notify(args Search, reply *Reply) error

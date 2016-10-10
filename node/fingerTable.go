@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"time"
 	"errors"
+	"net/http"
 )
 
 const (
@@ -28,7 +29,13 @@ var (
 	ErrFingerNotFound = errors.New("Cant find closesetpreceding finger")
 )
 
-
+/* Calculates the start of the given interval
+	formula: (n+2^k-1) mod 2^m
+	exponent: The exponent k of the given formula
+	modExp: The exponent m of the given formula
+	id: n in the given formula
+	Returns the start of the interval
+*/
 func calcStart(exponent int, modExp int, id big.Int) big.Int {
 	base2 := big.NewInt(int64(2))
 	k := big.NewInt(int64(exponent))
@@ -50,24 +57,26 @@ func calcStart(exponent int, modExp int, id big.Int) big.Int {
 	return *ret
 }
 
-
+/* Inits the finger table, calcluates the start of each interval*/
 func (n *Node) initFingerTable() {
 	n.table.fingers = make([]fingerEntry, lenOfId)
 
 	for i := 1; i < (lenOfId-1); i++ {
 		n.table.fingers[i].start = calcStart((i-1), lenOfId, n.id)
 	}
-	n.logger.Debug("Inited finger table")
 }
-
+/* Periodically updates the fingert table by finding the successor
+   node of each interval start in the fingertable.*/
 func (n *Node) fixFingers() {
 	for {
 
+		/* Alone in the ring, no need to update table */
 		if n.table.fingers[1].node.Ip == n.Ip {
 			time.Sleep(time.Second * 1)
 			continue
 		}
 
+		/* Index 1 is the successor and index 0 is not used */
 		index := rand.Int() % lenOfId
 		if index == 1 || index == 0 {
 			index = 2
@@ -75,8 +84,6 @@ func (n *Node) fixFingers() {
 
 		node, err := n.findPreDecessor(n.table.fingers[index].start)
 		if err != nil {
-			n.logger.Error("FAILED TO SET SUCCESOR")
-			n.logger.Error("Succ : " + n.table.fingers[1].node.Ip)
 			n.logger.Error(err.Error())
 			time.Sleep(time.Second*1)
 			continue
@@ -87,68 +94,68 @@ func (n *Node) fixFingers() {
 			time.Sleep(time.Second*1)
 			continue
 		}
-		//n.logger.Info("SET SUCCESSOR")
 		n.table.fingers[index].node = succ
 		time.Sleep(time.Second*1)
 	}
 }
-
+/* Periodically called to stabilize ring position
+   Queries the successor for its predeccessor and notifies it of
+   the current nodes existence
+*/
 func(n *Node) stabilize() {
 	var succ string
-//	n.logger.Info("STABILIZING")
+
 	arg := 0
 
 	succ = n.table.fingers[1].node.Ip
 
-	r := &shared.Test{}
+	r := &shared.Search{}
 	if succ == n.Ip {
 		return
 	}
-	err := shared.SingleCall("Node.GetPreDecessor", (succ + n.RpcPort), arg, r)
+	/* Can't exceed limit of idle connections */
+	http.DefaultTransport.(*http.Transport).CloseIdleConnections()
+
+	err := shared.SingleCall("Node.GetPreDecessor", succ, n.RpcPort, arg, r)
 	if err != nil {
 		n.logger.Error(err.Error())
-		n.logger.Error("Succ : " + succ)
 		return
 	}
 
-//	n.logger.Debug("Found predecessor and want to stabilize, pre : " + r.Ip)
 	tmp := new(big.Int)
 	tmp.SetBytes(r.Id)
 
 	if util.BetweenNodes(n.id, n.table.fingers[1].node.Id, *tmp) {
-//		n.logger.Debug("New succ is :" + r.Ip)
 		n.table.fingers[1].node.Ip = r.Ip
 		n.table.fingers[1].node.Id = *tmp
-		/*
-		if n.table.fingers[1].node.Ip == n.Ip {
-			n.logger.Debug("Found myself as succ, sleeping")
-			return
-		}
-		*/
 	}
 
-	args := shared.Test {
+	args := shared.Search {
 		Ip: n.Ip,
 		Id: n.id.Bytes()}
 
 	reply := &shared.Reply{}
-//	n.logger.Info("SENDING NOTIFY")
-//	n.logger.Debug("SUCC : " + n.table.fingers[1].node.Ip)
-	err = shared.SingleCall("Node.Notify", (n.table.fingers[1].node.Ip + n.RpcPort), args, reply)
+	err = shared.SingleCall("Node.Notify", n.table.fingers[1].node.Ip, n.RpcPort, args, reply)
 	if err != nil {
 		n.logger.Error(err.Error())
 	}
 }
-
+/* Joins the network
+   Alerts nameserver of its presence
+   Gets list of all nodes from nameserver
+   Finds successor and inserts itself into the network
+   Predecessor is initially set to itself.
+*/
 func (n *Node) join() {
 	n.putIp()
 
-	randomNode, err := util.GetNode(n.Ip, n.NameServer)
+	randomNode, err := util.GetNode((n.Ip + n.httpPort), n.NameServer)
 	if err != nil {
 		n.logger.Error(err.Error())
 		return
 	}
 
+	/* Alone, set successor and predecessor to myself */
 	if randomNode == "" {
 		self := shared.NodeInfo {
 			Id: n.id,
@@ -157,13 +164,13 @@ func (n *Node) join() {
 		n.prev = self
 		return
 	}
-	node := shared.Test {
+	node := shared.Search {
 		Ip: n.Ip,
 		Id: n.id.Bytes() }
 
 	r := &shared.Reply{}
-	n.logger.Debug(randomNode)
-	err = shared.SingleCall("Node.FindSuccessor", (randomNode + n.RpcPort), node, r)
+
+	err = shared.SingleCall("Node.FindSuccessor", randomNode, n.RpcPort, node, r)
 	if err != nil {
 		n.logger.Error(err.Error())
 		return
@@ -173,7 +180,14 @@ func (n *Node) join() {
 	n.prev.Ip = n.Ip
 	n.table.fingers[1].node = r.Next
 }
+/* Local function for closest preceding finger
+   Finds a node in the fingertable which is in the keyspace
+   between own id and the given id.
 
+   id: search key
+
+   returns information about the found node.
+*/
 func (n *Node) closestFinger(id big.Int) shared.NodeInfo {
 	for i := (lenOfId-1); i >= 1; i-- {
 		entry := n.table.fingers[i].node.Id
@@ -187,16 +201,22 @@ func (n *Node) closestFinger(id big.Int) shared.NodeInfo {
 
 	return self
 }
+/* Wrapper for GetSuccessor
+   Gets the successor of the given node.
 
+   ip: ip address of the node to query
+
+   Returns the successor of the given node
+*/
 func (n *Node) getSucc(ip string) (shared.NodeInfo, error) {
 	var err error
 	args := 0
-	r := &shared.Test{}
+	r := &shared.Search{}
 
 	if (ip == n.Ip) {
 		return n.table.fingers[1].node, nil
 	} else {
-		err = shared.SingleCall("Node.GetSuccessor", (ip + n.RpcPort), args, r)
+		err = shared.SingleCall("Node.GetSuccessor", ip, n.RpcPort, args, r)
 	}
 
 	tmp := new(big.Int)
@@ -206,7 +226,14 @@ func (n *Node) getSucc(ip string) (shared.NodeInfo, error) {
 		Id: *tmp }
 	return retVal, err
 }
+/* Finds the predecessor of the given node
+   Searches local fingertables first, then searches other nodes
+   fingertables by using rpc
 
+   id: search key
+
+   Returns the predecessor of the given node
+*/
 func (n *Node) findPreDecessor(id big.Int) (shared.NodeInfo, error) {
 	var err error
 	self := shared.NodeInfo {
@@ -216,24 +243,27 @@ func (n *Node) findPreDecessor(id big.Int) (shared.NodeInfo, error) {
 	succ := n.table.fingers[1].node
 
 	r := &shared.Reply{}
-	args := shared.Test {
+	args := shared.Search {
 		Id: id.Bytes() }
 
 	for {
+		/* In my own keyspace, no need to search more */
 		if util.InKeySpace(currNode.Id, succ.Id, id) {
 			break
 		}
 
+		/* Local search or remot search */
 		if currNode.Ip == n.Ip {
 			currNode = n.closestFinger(id)
 		} else {
-			err = shared.SingleCall("Node.ClosestPrecedingFinger", (currNode.Ip + n.RpcPort), args, r)
+			err = shared.SingleCall("Node.ClosestPrecedingFinger", currNode.Ip, n.RpcPort, args, r)
 			if err != nil {
 				return currNode, err
 			}
 			currNode = r.Next
 		}
 
+		/* Need to get the succesor of the current node to check its keyspace */
 		if currNode.Ip == n.Ip {
 			succ = n.table.fingers[1].node
 		} else {

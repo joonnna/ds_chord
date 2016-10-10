@@ -9,7 +9,6 @@ import (
 	"errors"
 )
 
-
 type Chord struct {
 	node *node.Node
 	log *logger.Logger
@@ -35,15 +34,10 @@ func (c *Chord) FindSuccessor(id string) (string, error) {
 	key := util.ConvertKey(id)
 
 	r := &shared.Reply{}
-	args := &shared.Test{
+	args := &shared.Search{
 		Id: key }
 
-	node, err := util.GetNode(c.node.Ip, c.node.NameServer)
-	if err != nil {
-		c.log.Error(err.Error())
-		return "", ErrFind
-	}
-	err = shared.SingleCall("Node.FindSuccessor", (node + c.node.RpcPort), args, r)
+	err := shared.SingleCall("Node.FindSuccessor", c.node.Ip, c.node.RpcPort, args, r)
 	if err != nil {
 		c.log.Error(err.Error())
 		return "", ErrFind
@@ -56,10 +50,10 @@ func (c *Chord) PutKey(address, key, value string) error {
 	id := util.ConvertKey(key)
 
 	r := &shared.Reply{}
-	args := shared.Test {
+	args := shared.Search {
 		Id : id,
 		Value: value }
-	err := shared.SingleCall("Node.PutKey", (address + c.node.RpcPort), args, r)
+	err := shared.SingleCall("Node.PutKey", address, c.node.RpcPort, args, r)
 	if err != nil {
 		c.log.Error(err.Error())
 		return ErrPut
@@ -72,10 +66,10 @@ func (c *Chord) GetKey(address, key string) (string, error) {
 	id := util.ConvertKey(key)
 
 	r := &shared.Reply{}
-	args := &shared.Test{
+	args := &shared.Search{
 		Id: id}
 
-	err := shared.SingleCall("Node.GetKey", (address + c.node.RpcPort), args, r)
+	err := shared.SingleCall("Node.GetKey", address, c.node.RpcPort, args, r)
 	if err != nil {
 		c.log.Error(err.Error())
 		return "", ErrGet

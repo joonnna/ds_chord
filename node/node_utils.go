@@ -1,43 +1,14 @@
 package node
 
 import (
-//	"io/ioutil"
-//	"encoding/json"
 	"net/http"
 	"time"
 	"strings"
-	//"math/big"
-//	"github.com/joonnna/ds_chord/logger"
-//	"github.com/joonnna/ds_chord/node_communication"
 )
 
-/*
-func (n *Node) assertSuccessor(newSucc *big.Int) {
-	cmp := n.Next.Id.Cmp(newSucc)
-	if cmp == 0 {
-		n.logger.Error("Invalid successor")
-	}
-
-	c := n.Next.Id.Cmp(&n.id)
-	if c == 1 && cmp == -1 {
-		n.logger.Error("Invalid successor")
-	}
-}
-
-func (n *Node) assertPreDecessor(newPre *big.Int) {
-	cmp := n.prev.Id.Cmp(newPre)
-	if cmp == 0 {
-		n.logger.Error("Invalid predecessor")
-	}
-
-	c := n.prev.Id.Cmp(n.id)
-	if c == -1 && cmp == 1 {
-		n.logger.Error("Invalid predecessor")
-	}
-}
-*/
+/* Sends a put request to the nameserver containing the ip of the node*/
 func (n *Node) putIp() {
-	req, err := http.NewRequest("PUT", n.NameServer+"/", strings.NewReader(n.Ip))
+	req, err := http.NewRequest("PUT", n.NameServer+"/", strings.NewReader(n.Ip + n.httpPort))
 	if err != nil {
 		n.logger.Error(err.Error())
 	}
